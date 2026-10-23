@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block titulo %}Meus veículos — VoltaSegura{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3">Meus veículos</h1>
+{% for v in veiculos %}
+  <div class="card mb-2">
+    <div class="card-body">
+      <div class="fw-bold">{{ v.marca }} {{ v.modelo }}</div>
+      <div class="text-muted">{{ v.cor }} • {{ v.ano }} • {{ v.placa }}</div>
+      <div class="d-flex gap-2 mt-2">
+        <a class="btn btn-outline-primary btn-sm flex-fill" href="{% url 'veiculos:editar' v.pk %}">Editar</a>
+        <a class="btn btn-outline-danger btn-sm flex-fill" href="{% url 'veiculos:remover' v.pk %}">Remover</a>
+      </div>
+    </div>
+  </div>
+{% empty %}
+  <p class="text-muted">Você ainda não cadastrou nenhum veículo.</p>
+{% endfor %}
+<a class="btn btn-primary btn-lg w-100 mt-2" href="{% url 'veiculos:novo' %}">Adicionar veículo</a>
+{% endblock %}

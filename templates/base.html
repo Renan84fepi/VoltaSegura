@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}VoltaSegura{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background: #f5f7fa; }
+    .btn { padding-top: .8rem; padding-bottom: .8rem; }
+    .radio-cards label { display: flex; gap: .6rem; align-items: center; padding: .8rem;
+      border: 1px solid #dee2e6; border-radius: .5rem; margin-bottom: .5rem; background: #fff; }
+    .container-estreito { max-width: 540px; }
+  </style>
+</head>
+<body>
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container container-estreito">
+    <a class="navbar-brand fw-bold" href="{% url 'home' %}">⚡ VoltaSegura</a>
+    {% if user.is_authenticated %}
+    <form method="post" action="{% url 'logout' %}" class="m-0">
+      {% csrf_token %}
+      <button class="btn btn-outline-light btn-sm" type="submit">Sair</button>
+    </form>
+    {% endif %}
+  </div>
+</nav>
+
+<main class="container container-estreito py-3">
+  {% for mensagem in messages %}
+    <div class="alert alert-{{ mensagem.tags }}" role="alert">{{ mensagem }}</div>
+  {% endfor %}
+  {% block conteudo %}{% endblock %}
+</main>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titulo %}Criar conta — VoltaSegura{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3">Criar conta</h1>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "includes/campos.html" %}
+  <button class="btn btn-primary btn-lg w-100" type="submit">Cadastrar</button>
+</form>
+<a class="d-block text-center mt-3" href="{% url 'login' %}">Já tenho conta</a>
+{% endblock %}

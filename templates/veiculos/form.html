@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<h1 class="h3 mb-3">{% if object %}Editar veículo{% else %}Novo veículo{% endif %}</h1>
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% include "includes/campos.html" %}
+  <button class="btn btn-primary btn-lg w-100" type="submit">Salvar</button>
+  <a class="btn btn-outline-secondary w-100 mt-2" href="{% url 'veiculos:lista' %}">Cancelar</a>
+</form>
+{% endblock %}

@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block conteudo %}
+<h1 class="h3">Acesso negado</h1>
+<p>Você não tem permissão para acessar esta página.</p>
+<a class="btn btn-primary btn-lg w-100" href="{% url 'home' %}">Ir para o início</a>
+{% endblock %}

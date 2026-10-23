@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block titulo %}Painel do motorista — VoltaSegura{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3">Olá, {{ user.get_short_name }}</h1>
+
+{% if perfil and perfil.pode_ficar_online %}
+  <div class="alert alert-success">Cadastro completo e aprovado. Em breve você poderá ficar online.</div>
+{% else %}
+  <div class="alert alert-warning">Para ficar online, você precisa ter documentos aprovados, CNH válida e bicicleta aprovada.</div>
+{% endif %}
+
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h6">1. Documentos e CNH</h2>
+  {% if perfil %}
+    <p class="mb-1">Situação: <strong>{{ perfil.get_status_aprovacao_display }}</strong></p>
+    {% if perfil.status_aprovacao == "rejeitado" %}<p class="text-danger small mb-1">Motivo: {{ perfil.motivo_rejeicao }}</p>{% endif %}
+    <p class="small text-muted mb-2">CNH válida até {{ perfil.cnh_validade|date:"d/m/Y" }}{% if not perfil.cnh_valida %} — <span class="text-danger">vencida</span>{% endif %}</p>
+  {% else %}
+    <p class="text-muted">Ainda não enviado.</p>
+  {% endif %}
+  <a class="btn btn-primary w-100" href="{% url 'motoristas:documentos' %}">{% if perfil %}Atualizar{% else %}Enviar{% endif %} documentos</a>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h6">2. Bicicleta elétrica dobrável</h2>
+  {% if bicicleta %}
+    <p class="mb-1">{{ bicicleta.marca }} {{ bicicleta.modelo }} — Situação: <strong>{{ bicicleta.get_status_aprovacao_display }}</strong></p>
+    {% if bicicleta.status_aprovacao == "rejeitado" %}<p class="text-danger small mb-1">Motivo: {{ bicicleta.motivo_rejeicao }}</p>{% endif %}
+  {% else %}
+    <p class="text-muted">Ainda não cadastrada.</p>
+  {% endif %}
+  <a class="btn btn-primary w-100" href="{% url 'motoristas:bicicleta' %}">{% if bicicleta %}Atualizar{% else %}Cadastrar{% endif %} bicicleta</a>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+  <h2 class="h6">3. Dados para recebimento</h2>
+  {% if repasse %}
+    <p class="mb-2">Chave Pix ({{ repasse.get_tipo_chave_pix_display }}) cadastrada.</p>
+  {% else %}
+    <p class="text-muted">Ainda não informado.</p>
+  {% endif %}
+  <a class="btn btn-primary w-100" href="{% url 'motoristas:repasse' %}">{% if repasse %}Atualizar{% else %}Informar{% endif %} dados</a>
+</div></div>
+{% endblock %}
