@@ -26,5 +26,5 @@ def home(request):
     if perfil == Usuario.Perfil.MOTORISTA:
         return redirect("motoristas:painel")
     if perfil == Usuario.Perfil.CLIENTE:
-        return redirect("veiculos:lista")
+        return redirect("corridas:solicitar")
     return redirect("admin:index")

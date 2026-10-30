@@ -39,8 +39,21 @@ pytest
 | diana@exemplo.com | Motorista com documentos e bicicleta pendentes |
 | eduardo@exemplo.com | Motorista com documentos rejeitados |
 | fabio@exemplo.com | Motorista aprovado, mas com CNH vencida |
+| gabriela@exemplo.com | Motorista aprovado, mais longe do Centro (para testar a oferta ao mais próximo) |
 
 O comando recusa rodar com `DEBUG=False` (use `--forcar` se for de propósito).
+
+## Demonstrar uma corrida (Marco 3)
+Use dois navegadores (ou uma janela anônima), um para cada perfil.
+
+1. **Motorista** `carlos@exemplo.com` → painel → **Ficar online**. Sem GPS, use o cartão "Simular posição" (só aparece com `DEBUG=True`) e clique em **Enviar posição**.
+2. **Cliente** `ana@exemplo.com` → coleta `-22.2306, -45.9356` e destino `-22.2650, -45.9000` (ou endereços reais, com internet) → **Ver estimativa** → **Confirmar pedido**.
+3. O motorista vê a oferta em até 4 s → **Aceitar** → **Estou a caminho** → (opcional: **Andar até o alvo** no simulador; a distância muda na tela do cliente) → **Cheguei ao local**.
+4. O cliente vê o código de 4 dígitos; o motorista digita → **Iniciar corrida** → **Finalizar no destino**.
+
+Tarifas, comissão, raio de oferta e motoristas por oferta ficam no admin, em **Corridas → Configuração de tarifas**.
+
+Sem internet, defina `GEOCODIFICACAO_ATIVA=False` no `.env`: a coleta pode usar a posição do aparelho e os endereços podem ser digitados como `latitude, longitude`.
 
 ## Testar no celular (HTTPS)
 Use um túnel HTTPS (ex.: ngrok) e informe o endereço no `.env`:

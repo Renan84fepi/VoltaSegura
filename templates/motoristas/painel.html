@@ -1,13 +1,49 @@
 {% extends "base.html" %}
+{% load static %}
 {% block titulo %}Painel do motorista — VoltaSegura{% endblock %}
 {% block conteudo %}
 <h1 class="h3 mb-3">Olá, {{ user.get_short_name }}</h1>
 
-{% if perfil and perfil.pode_ficar_online %}
-  <div class="alert alert-success">Cadastro completo e aprovado. Em breve você poderá ficar online.</div>
-{% else %}
-  <div class="alert alert-warning">Para ficar online, você precisa ter documentos aprovados, CNH válida e bicicleta aprovada.</div>
-{% endif %}
+<div id="trabalho"
+     data-url-disponibilidade="{% url 'api:disponibilidade' %}"
+     data-url-localizacao="{% url 'api:localizacao' %}"
+     data-url-ofertas="{% url 'api:ofertas' %}"
+     data-url-corrida="{% url 'api:corrida' 0 %}">
+  <div class="card mb-3"><div class="card-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 m-0">Status</h2>
+      <span id="selo-online" class="badge text-bg-secondary fs-6">…</span>
+    </div>
+    <ul id="impedimentos" class="small text-danger mb-2 ps-3"></ul>
+    <button id="btn-online" class="btn btn-lg w-100" disabled>Carregando…</button>
+    <div id="aviso-gps" class="small mt-2"></div>
+  </div></div>
+
+  {% if simulador %}
+  <div class="card mb-3 border-warning"><div class="card-body">
+    <h2 class="h6">🧪 Simular posição (só em desenvolvimento)</h2>
+    <div class="form-check form-switch mb-2">
+      <input class="form-check-input" type="checkbox" id="sim-ativo">
+      <label class="form-check-label" for="sim-ativo">Usar a posição abaixo no lugar do GPS</label>
+    </div>
+    <div class="d-flex gap-2 mb-2">
+      <input id="sim-lat" class="form-control" inputmode="decimal" placeholder="Latitude" value="-22.2306">
+      <input id="sim-lng" class="form-control" inputmode="decimal" placeholder="Longitude" value="-45.9356">
+    </div>
+    <div class="d-flex gap-2">
+      <button id="sim-enviar" class="btn btn-outline-warning btn-sm flex-fill" type="button">Enviar posição</button>
+      <button id="sim-andar" class="btn btn-outline-warning btn-sm flex-fill" type="button">Andar até o alvo</button>
+    </div>
+    <div class="form-text">"Andar" percorre metade do caminho até a coleta (ou o destino, durante a corrida).</div>
+  </div></div>
+  {% endif %}
+
+  <div id="aviso" hidden></div>
+  <div id="area-corrida"></div>
+  <div id="area-ofertas"></div>
+</div>
+
+<h2 class="h5 mt-4 mb-3">Meu cadastro</h2>
 
 <div class="card mb-3"><div class="card-body">
   <h2 class="h6">1. Documentos e CNH</h2>
@@ -41,4 +77,8 @@
   {% endif %}
   <a class="btn btn-primary w-100" href="{% url 'motoristas:repasse' %}">{% if repasse %}Atualizar{% else %}Informar{% endif %} dados</a>
 </div></div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'corridas/comum.js' %}"></script>
+<script src="{% static 'corridas/motorista.js' %}"></script>
 {% endblock %}

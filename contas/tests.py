@@ -74,7 +74,7 @@ def test_sessao_de_usuario_bloqueado_depois_do_login_e_derrubada(client, cliente
 
 @pytest.mark.parametrize(
     "fixture, destino",
-    [("cliente", "/veiculos/"), ("motorista", "/motorista/"), ("admin_user", "/admin/")],
+    [("cliente", "/corridas/nova/"), ("motorista", "/motorista/"), ("admin_user", "/admin/")],
 )
 def test_home_redireciona_por_perfil(client, request, fixture, destino):
     client.force_login(request.getfixturevalue(fixture))

@@ -9,6 +9,7 @@ from django.utils import timezone
 from PIL import Image
 
 from contas.models import Usuario
+from corridas.models import Configuracao
 from motoristas.models import Bicicleta, DadosRepasse, PerfilMotorista
 from veiculos.models import Veiculo
 
@@ -57,15 +58,17 @@ class Command(BaseCommand):
                 defaults={"marca": marca, "modelo": modelo, "cor": cor, "ano": ano},
             )
 
-        # (email, nome, tel, situação docs, validade CNH, situação bicicleta, cor da imagem)
+        # (email, nome, tel, situação docs, validade CNH, situação bicicleta, cor da imagem, posição)
+        # Posições em Pouso Alegre/MG, a distâncias diferentes do Centro.
         motoristas = [
-            ("carlos@exemplo.com", "Carlos Mota", "35999990011", Status.APROVADO, hoje + timedelta(days=700), Status.APROVADO, "#2d6a4f"),
-            ("diana@exemplo.com", "Diana Reis", "35999990012", Status.PENDENTE, hoje + timedelta(days=500), Status.PENDENTE, "#264653"),
-            ("eduardo@exemplo.com", "Eduardo Paz", "35999990013", Status.REJEITADO, hoje + timedelta(days=300), Status.APROVADO, "#9d0208"),
-            ("fabio@exemplo.com", "Fábio Costa", "35999990014", Status.APROVADO, hoje - timedelta(days=30), Status.APROVADO, "#6c757d"),
+            ("carlos@exemplo.com", "Carlos Mota", "35999990011", Status.APROVADO, hoje + timedelta(days=700), Status.APROVADO, "#2d6a4f", ("-22.229800", "-45.934200")),
+            ("diana@exemplo.com", "Diana Reis", "35999990012", Status.PENDENTE, hoje + timedelta(days=500), Status.PENDENTE, "#264653", ("-22.236000", "-45.928000")),
+            ("eduardo@exemplo.com", "Eduardo Paz", "35999990013", Status.REJEITADO, hoje + timedelta(days=300), Status.APROVADO, "#9d0208", ("-22.221000", "-45.940000")),
+            ("fabio@exemplo.com", "Fábio Costa", "35999990014", Status.APROVADO, hoje - timedelta(days=30), Status.APROVADO, "#6c757d", ("-22.240000", "-45.945000")),
+            ("gabriela@exemplo.com", "Gabriela Nunes", "35999990015", Status.APROVADO, hoje + timedelta(days=900), Status.APROVADO, "#e76f51", ("-22.252000", "-45.912000")),
         ]
-        cpfs = ["52998224725", "11144477735", "39053344705", "16899535009"]
-        for i, (email, nome, tel, st_docs, validade, st_bike, cor) in enumerate(motoristas):
+        cpfs = ["52998224725", "11144477735", "39053344705", "16899535009", "71428793860"]
+        for i, (email, nome, tel, st_docs, validade, st_bike, cor, (lat, lng)) in enumerate(motoristas):
             motorista = usuario(email, nome, Usuario.Perfil.MOTORISTA, tel)
             perfil, criado = PerfilMotorista.objects.get_or_create(
                 usuario=motorista,
@@ -77,6 +80,8 @@ class Command(BaseCommand):
             )
             if criado:
                 self._avaliar(perfil, st_docs, admin, "Foto do documento ilegível.")
+            if perfil.latitude is None:  # última posição conhecida; fica offline até o motorista entrar
+                PerfilMotorista.objects.filter(pk=perfil.pk).update(latitude=lat, longitude=lng)
             bicicleta, criada = Bicicleta.objects.get_or_create(
                 usuario=motorista,
                 defaults={"marca": "Dobrix", "modelo": f"Mini E{i + 1}", "cor": "Cinza", "foto": imagem_falsa(cor)},
@@ -88,11 +93,16 @@ class Command(BaseCommand):
                 defaults={"titular": nome, "tipo_chave_pix": "cpf", "chave_pix": cpfs[i]},
             )
 
+        Configuracao.atual()  # tarifas padrão (editáveis no admin)
+
         self.stdout.write(self.style.SUCCESS("Dados de exemplo prontos."))
         self.stdout.write(f"Senha de todos: {senha}")
         self.stdout.write(
-            "admin@exemplo.com | ana@ e bruno@ (clientes) | carlos@ (aprovado) | "
+            "admin@exemplo.com | ana@ e bruno@ (clientes) | carlos@ e gabriela@ (aprovados) | "
             "diana@ (pendente) | eduardo@ (rejeitado) | fabio@ (CNH vencida) — todos @exemplo.com"
+        )
+        self.stdout.write(
+            "Corrida de teste: coleta '-22.2306, -45.9356' (Centro) e destino '-22.2650, -45.9000'."
         )
 
     @staticmethod

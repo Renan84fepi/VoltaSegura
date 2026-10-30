@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.decorators import login_required
@@ -26,6 +27,7 @@ class Painel(MotoristaMixin, TemplateView):
         contexto["perfil"] = PerfilMotorista.objects.filter(usuario=usuario).first()
         contexto["bicicleta"] = Bicicleta.objects.filter(usuario=usuario).first()
         contexto["repasse"] = DadosRepasse.objects.filter(usuario=usuario).first()
+        contexto["simulador"] = settings.DEBUG  # simular posição só em desenvolvimento
         return contexto
 
 
@@ -79,11 +81,17 @@ class Repasse(EditarRegistroUnico):
 def arquivo_protegido(request, tipo, usuario_id):
     """Entrega documento/foto só ao dono e ao administrador (RNF07).
 
-    Nas próximas etapas, as partes de uma corrida também poderão ver a foto
-    da bicicleta do motorista.
+    A foto da bicicleta também é liberada ao cliente que tem corrida ativa com
+    esse motorista, para reconhecê-lo na chegada.
     """
+    from corridas.models import STATUS_ATIVOS
+
     usuario = request.user
-    if not (usuario.pk == usuario_id or usuario.perfil == Usuario.Perfil.ADMINISTRADOR):
+    eh_dono_ou_admin = usuario.pk == usuario_id or usuario.perfil == Usuario.Perfil.ADMINISTRADOR
+    cliente_da_corrida = tipo == "bicicleta" and usuario.corridas_como_cliente.filter(
+        motorista_id=usuario_id, status__in=STATUS_ATIVOS
+    ).exists()
+    if not (eh_dono_ou_admin or cliente_da_corrida):
         raise PermissionDenied
     if tipo == "documento":
         campo = get_object_or_404(PerfilMotorista, usuario_id=usuario_id).documento_identidade

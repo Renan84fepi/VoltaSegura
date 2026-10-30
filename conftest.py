@@ -14,6 +14,11 @@ def media_temporaria(settings, tmp_path):
     settings.MEDIA_ROOT = tmp_path
 
 
+@pytest.fixture(autouse=True)
+def sem_geocodificacao_real(settings):
+    settings.GEOCODIFICACAO_ATIVA = False  # testes não dependem de internet
+
+
 def gerar_imagem(nome="foto.png"):
     buffer = io.BytesIO()
     Image.new("RGB", (60, 40), "#336699").save(buffer, "PNG")

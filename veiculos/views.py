@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DeleteView, ListView, UpdateView
 
@@ -50,6 +51,11 @@ class VeiculoRemover(ClienteMixin, DeleteView):
     template_name = "veiculos/confirmar_remocao.html"
 
     def form_valid(self, form):
+        from corridas.models import STATUS_ATIVOS
+
+        if self.object.corridas.filter(status__in=STATUS_ATIVOS).exists():
+            messages.error(self.request, "Este veículo está em uma corrida ativa e não pode ser removido.")
+            return redirect("veiculos:lista")
         resposta = super().form_valid(form)
         messages.success(self.request, "Veículo removido.")
         return resposta

@@ -100,6 +100,17 @@ class PerfilMotorista(AprovacaoMixin):
     enviado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
+    # Disponibilidade e última posição conhecida (RF06, RF07). Coordenadas em
+    # campos numéricos comuns: o projeto não usa PostGIS.
+    online = models.BooleanField("online", default=False)
+    latitude = models.DecimalField(
+        "latitude", max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    longitude = models.DecimalField(
+        "longitude", max_digits=9, decimal_places=6, null=True, blank=True
+    )
+    localizacao_em = models.DateTimeField("posição atualizada em", null=True, blank=True)
+
     class Meta:
         verbose_name = "motorista (documentos)"
         verbose_name_plural = "motoristas (documentos)"
@@ -120,12 +131,7 @@ class PerfilMotorista(AprovacaoMixin):
     @property
     def pode_ficar_online(self):
         """RN01: aprovado, CNH válida e bicicleta aprovada (e não bloqueado)."""
-        return (
-            not self.usuario.bloqueado
-            and self.aprovado
-            and self.cnh_valida
-            and self.bicicleta_aprovada
-        )
+        return not impedimentos_online(self.usuario, self)
 
 
 class Bicicleta(AprovacaoMixin):
@@ -186,3 +192,28 @@ class DadosRepasse(models.Model):
 
     def __str__(self):
         return f"Repasse de {self.usuario.nome}"
+
+
+def impedimentos_online(usuario, perfil=None):
+    """Motivos que impedem o motorista de ficar online (RN01). Lista vazia = pode."""
+    if perfil is None:
+        perfil = PerfilMotorista.objects.filter(usuario=usuario).first()
+    Status = AprovacaoMixin.Status
+    motivos = []
+    if usuario.bloqueado:
+        motivos.append("Sua conta está bloqueada.")
+    if perfil is None:
+        motivos.append("Envie seus documentos e os dados da CNH.")
+    else:
+        if perfil.status_aprovacao == Status.PENDENTE:
+            motivos.append("Seus documentos aguardam aprovação.")
+        elif perfil.status_aprovacao == Status.REJEITADO:
+            motivos.append("Seus documentos foram rejeitados. Revise e reenvie.")
+        if not perfil.cnh_valida:
+            motivos.append("Sua CNH está vencida.")
+    bicicleta = getattr(usuario, "bicicleta", None)
+    if bicicleta is None:
+        motivos.append("Cadastre sua bicicleta elétrica dobrável.")
+    elif not bicicleta.aprovado:
+        motivos.append("Sua bicicleta ainda não foi aprovada.")
+    return motivos

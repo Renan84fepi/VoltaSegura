@@ -21,10 +21,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "rest_framework",  # usado a partir da etapa da API REST
+    "rest_framework",
     "contas",
     "veiculos",
     "motoristas",
+    "corridas",
 ]
 
 MIDDLEWARE = [
@@ -114,4 +115,19 @@ MAILERS = {
 }
 DEFAULT_FROM_EMAIL = env(
     "DEFAULT_FROM_EMAIL", default="VoltaSegura <nao-responda@voltasegura.local>"
+)
+
+# API REST: sessão do Django (com CSRF) e permissão por perfil em cada view.
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
+    "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
+    "EXCEPTION_HANDLER": "corridas.api.tratar_excecao",
+}
+
+# Endereço -> coordenadas (geopy + Nominatim/OpenStreetMap). Desligue sem internet:
+# o cliente ainda pode usar a posição do aparelho ou digitar "latitude, longitude".
+GEOCODIFICACAO_ATIVA = env.bool("GEOCODIFICACAO_ATIVA", default=True)
+GEOCODIFICADOR_USER_AGENT = env(
+    "GEOCODIFICADOR_USER_AGENT", default="VoltaSegura/1.0 (projeto academico)"
 )

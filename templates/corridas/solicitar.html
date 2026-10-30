@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %}Solicitar corrida — VoltaSegura{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3">Olá, {{ user.get_short_name }}</h1>
+
+{% if not veiculos %}
+  <div class="alert alert-warning">Cadastre o veículo que será conduzido antes de pedir uma corrida.</div>
+  <a class="btn btn-primary btn-lg w-100" href="{% url 'veiculos:novo' %}">Cadastrar veículo</a>
+{% else %}
+<div id="pedido"
+     data-url-estimativa="{% url 'api:estimativa' %}"
+     data-url-solicitar="{% url 'api:solicitar' %}"
+     data-url-acompanhar="{% url 'corridas:acompanhar' 0 %}">
+
+  <form id="form-pedido" novalidate>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="origem">Coleta</label>
+      <input id="origem" class="form-control form-control-lg" required maxlength="255"
+             placeholder="Rua, número, bairro, cidade" autocomplete="street-address">
+      <button type="button" id="usar-posicao" class="btn btn-outline-primary w-100 mt-2">📍 Usar minha localização</button>
+      <div id="aviso-gps" class="form-text"></div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="destino">Destino</label>
+      <input id="destino" class="form-control form-control-lg" required maxlength="255"
+             placeholder="Rua, número, bairro, cidade">
+      <div class="form-text">Sem internet para buscar o endereço? Digite as coordenadas, ex.: -22.2306, -45.9356</div>
+    </div>
+    <div class="mb-3">
+      <label class="form-label fw-semibold" for="veiculo">Veículo</label>
+      <select id="veiculo" class="form-select form-select-lg">
+        {% for v in veiculos %}<option value="{{ v.pk }}">{{ v }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="mb-3">
+      <span class="form-label fw-semibold d-block">Pagamento</span>
+      <div class="radio-cards">
+        {% for valor, texto in formas_pagamento %}
+        <label><input class="form-check-input" type="radio" name="forma_pagamento" value="{{ valor }}" {% if forloop.first %}checked{% endif %}> {{ texto }}</label>
+        {% endfor %}
+      </div>
+    </div>
+    <div id="erro" hidden></div>
+    <button id="btn-estimar" class="btn btn-primary btn-lg w-100" type="submit">Ver estimativa</button>
+  </form>
+
+  <div id="confirmacao" class="card" hidden>
+    <div class="card-body">
+      <h2 class="h5">Confirme seu pedido</h2>
+      <p class="mb-1">Distância: <strong id="conf-distancia"></strong></p>
+      <p class="mb-1">Estimativa: <strong id="conf-preco" class="fs-4"></strong></p>
+      <p class="mb-1 small text-muted" id="conf-trajeto"></p>
+      <p class="mb-3 small text-muted" id="conf-veiculo"></p>
+      <div id="erro-confirmacao" hidden></div>
+      <button id="btn-confirmar" class="btn btn-success btn-lg w-100 mb-2">Confirmar pedido</button>
+      <button id="btn-voltar" class="btn btn-outline-secondary w-100">Voltar</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'corridas/comum.js' %}"></script>
+<script src="{% static 'corridas/cliente.js' %}"></script>
+{% endblock %}

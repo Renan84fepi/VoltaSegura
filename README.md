@@ -4,7 +4,7 @@ Projeto da disciplina de Backend, ministrada pelo professor Marcio.
 
 PWA desenvolvido em Django que conecta clientes a motoristas que conduzem **o próprio carro do cliente** até o destino. O motorista chega ao local com uma **minibicicleta elétrica dobrável**, transportada no porta-malas durante a corrida e utilizada para deixar o local após a conclusão do serviço.
 
-> **Status:** Marco 2 — Base e cadastros (em andamento). Marco 1 — Planejamento concluído.
+> **Status:** Marco 3 — Solicitação e corrida (em revisão). Marcos 1 e 2 concluídos.
 
 ## Equipe
 
@@ -55,8 +55,9 @@ Serão avaliadas após o Marco 2:
 | Marco | Situação | Entregas |
 |---|---|---|
 | 1 — Planejamento | Concluído | README, divisão de tarefas, prompt v1, plano de etapas e esboço das telas |
-| 2 — Base e cadastros | Em andamento | Django + PostgreSQL + `.env`; contas (RF01); veículos (RF02); documentos, bicicleta e repasse do motorista (RF03–RF05); aprovação pelo administrador (RF26) |
-| 3 a 5 | Pendentes | Conforme o enunciado da disciplina |
+| 2 — Base e cadastros | Concluído | Django + PostgreSQL + `.env`; contas (RF01); veículos (RF02); documentos, bicicleta e repasse do motorista (RF03–RF05); aprovação pelo administrador (RF26) |
+| 3 — Solicitação e corrida | Em revisão | Online/offline e localização (RF06–RF07); solicitação com estimativa e oferta aos mais próximos (RF08–RF11); ciclo da corrida com código (RF12–RF18); testes de RN01–RN05 |
+| 4 e 5 | Pendentes | Conforme o enunciado da disciplina |
 
 ### Já implementado no Marco 2
 
@@ -67,6 +68,42 @@ Serão avaliadas após o Marco 2:
 - Aprovação ou rejeição de motoristas e bicicletas no Django Admin, com motivo e registro de quem avaliou.
 - Documentos e fotos protegidos: sem URL pública, visíveis só ao dono e ao administrador.
 - Testes automatizados com pytest-django para as regras acima.
+
+### Já implementado no Marco 3
+
+- Motorista fica online/offline só se atender à RN01; o painel mostra o motivo quando não pode.
+- Localização do motorista enviada a cada 10 s pela Geolocation API, com tratamento de permissão negada e GPS indisponível.
+- Solicitação com coleta (endereço ou posição atual), destino, veículo e Pix/cartão; distância e preço antes de confirmar (RN06), recalculados no servidor.
+- Oferta aos motoristas elegíveis mais próximos, dentro de um raio configurável; quem recusa sai da fila.
+- Aceite à prova de concorrência (`select_for_update` + índices únicos parciais no PostgreSQL).
+- Sequência de status obrigatória (RN04), código de confirmação com limite de 5 tentativas (RN05) e registro de cada mudança com data, hora e autor (RNF09).
+- Acompanhamento sem recarregar a página (polling a cada 4 s) para cliente e motorista.
+- Tarifas, comissão, raio e motoristas por oferta editáveis no admin; corridas consultáveis com filtros.
+- Simulador de posição do motorista (somente com `DEBUG=True`).
+
+### Regras de cancelamento (RF17, definidas pela dupla)
+
+| Status | Cliente | Motorista |
+|---|---|---|
+| Solicitada | Pode | — (usa "Recusar") |
+| Aceita, a caminho, chegou | Pode | Pode, informando o motivo |
+| Em andamento | Não | Não (o carro já está sendo conduzido; só finaliza no destino) |
+| Finalizada / cancelada | Não | Não |
+
+### API REST (sessão + CSRF)
+
+| Método | Rota | Quem | Uso |
+|---|---|---|---|
+| GET/POST | `/api/motorista/disponibilidade/` | Motorista | Situação; `{"online": true}` (RN01) |
+| POST | `/api/motorista/localizacao/` | Motorista | `{"latitude", "longitude"}` (RF07) |
+| GET | `/api/motorista/ofertas/` | Motorista | Solicitações oferecidas (RF11) |
+| POST | `/api/corridas/estimativa/` | Cliente | Distância e preço (RF10) |
+| POST | `/api/corridas/` | Cliente | Solicita a corrida (RF08) |
+| GET | `/api/corridas/ativa/` e `/api/corridas/<id>/` | As partes | Acompanhamento por polling (RF18) |
+| POST | `/api/corridas/<id>/aceitar/`, `recusar/`, `a-caminho/`, `chegou/`, `iniciar/` (`{"codigo"}`), `finalizar/` | Motorista | Ciclo da corrida (RN02–RN05) |
+| POST | `/api/corridas/<id>/cancelar/` | As partes | `{"motivo"}` (RF17) |
+
+Erros de regra voltam como `{"detail": "mensagem"}` com 400, 403, 404 ou 409. A documentação Swagger (drf-spectacular) fica para o Marco 5.
 
 ## Stack tecnológica
 
@@ -93,10 +130,9 @@ As versões fixadas estão em [`requirements.txt`](requirements.txt).
 | gunicorn | 26.2.0 | Servidor de aplicação para execução fora do modo de desenvolvimento |
 | pytest | 9.1.1 | Execução dos testes automatizados |
 | pytest-django | 4.14.0 | Integração do pytest com o Django (banco de testes, fixtures) |
+| geopy | 2.5.0 | Distância geodésica entre coordenadas e conversão de endereço em coordenadas (Nominatim/OpenStreetMap) |
 
 ### Ainda previstos para marcos seguintes
-
-- geopy
 - drf-spectacular
 - django-filter
 
@@ -109,7 +145,7 @@ Dependências adicionais deverão ser justificadas nesta documentação.
 - [Plano de etapas](docs/plano-de-etapas.md)
 - [Esboço das telas](docs/telas.md)
 - [Atualizações do Marco 2](docs/marco-2-atualizacoes.md)
-- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md))
+- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md); v3: [prompt-v3](docs/prompts/prompt-v3.md))
 
 Os prompts são versionados, com registros das alterações e justificativas em `docs/prompts/CHANGELOG.md`.
 

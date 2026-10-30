@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %}Sua corrida — VoltaSegura{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3">Sua corrida</h1>
+<div id="acompanhamento"
+     data-url-corrida="{% url 'api:corrida' corrida.pk %}"
+     data-url-cancelar="{% url 'api:cancelar' corrida.pk %}"
+     data-url-nova="{% url 'corridas:solicitar' %}">
+  <div id="aviso-conexao" hidden></div>
+  <div id="painel-corrida"><p class="text-muted">Carregando…</p></div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script src="{% static 'corridas/comum.js' %}"></script>
+<script src="{% static 'corridas/cliente.js' %}"></script>
+{% endblock %}
