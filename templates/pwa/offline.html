@@ -1,0 +1,45 @@
+{% load static %}<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#212529">
+  <title>Sem conexão — VoltaSegura</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    /* Estilo mínimo próprio, caso o Bootstrap não esteja no cache. */
+    body { background: #f5f7fa; font-family: system-ui, sans-serif; margin: 0; }
+    .topo { background: #212529; color: #fff; padding: .8rem 1rem; font-weight: 700; }
+    .caixa { max-width: 540px; margin: 0 auto; padding: 1rem; }
+    .cartao { background: #fff; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; margin-bottom: 1rem; }
+    .codigo { font-size: 2.4rem; letter-spacing: .6rem; font-weight: 700; }
+    .botao { display: block; width: 100%; padding: .9rem; font-size: 1.1rem; border-radius: .5rem;
+      border: 0; background: #0d6efd; color: #fff; text-align: center; text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="topo">⚡ VoltaSegura</div>
+<main class="caixa">
+  <h1 class="h4">Você está sem conexão</h1>
+  <p>Assim que a internet voltar, a página é recarregada sozinha.</p>
+
+  <div id="corrida" class="cartao" hidden>
+    <div class="small text-muted">Última situação da sua corrida <span id="salvo-em"></span></div>
+    <div class="fs-5 fw-bold" id="status"></div>
+    <div class="small"><strong>Coleta:</strong> <span id="origem"></span></div>
+    <div class="small"><strong>Destino:</strong> <span id="destino"></span></div>
+    <div id="bloco-codigo" class="text-center mt-2" hidden>
+      <div class="small text-muted">Código para o motorista</div>
+      <div class="codigo" id="codigo"></div>
+    </div>
+    <div id="bloco-contato" class="mt-2" hidden>
+      <span id="contato-nome"></span> — <a id="contato-tel" href="#"></a>
+      <div class="small text-muted">A ligação funciona mesmo sem internet.</div>
+    </div>
+  </div>
+
+  <button class="botao" type="button" id="tentar">Tentar novamente</button>
+</main>
+<script src="{% static 'pwa/offline.js' %}?v={{ versao_estaticos }}"></script>
+</body>
+</html>

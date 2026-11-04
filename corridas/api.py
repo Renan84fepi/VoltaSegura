@@ -12,6 +12,8 @@ from . import serializers as s
 from .models import Corrida
 from .regras import RegraViolada
 
+POR_PAGINA = 20  # histórico
+
 
 def tratar_excecao(exc, contexto):
     """Regra de negócio violada vira JSON {"detail": "..."} com o status adequado."""
@@ -185,3 +187,61 @@ def _acao_do_motorista(funcao):
 a_caminho = _acao_do_motorista(regras.ir_a_caminho)
 chegou = _acao_do_motorista(regras.informar_chegada)
 finalizar = _acao_do_motorista(regras.finalizar)
+
+
+# ---------------------------------------------------------------- pagamento, avaliação e histórico
+
+@api_view(["POST"])
+@permission_classes([EhCliente])
+def pagar(request, pk):
+    """RF21: corpo {"resultado": "aprovado"|"recusado"} (padrão: aprovado). Simulado."""
+    entrada = s.PagamentoSerializer(data=request.data)
+    entrada.is_valid(raise_exception=True)
+    aprovar = entrada.validated_data["resultado"] == s.StatusPagamento.APROVADO
+    regras.pagar(pk, request.user, aprovar=aprovar)
+    return Response(s.corrida(_da_parte(request, pk), request.user))
+
+
+@api_view(["POST"])
+@permission_classes([EhCliente])
+def avaliar(request, pk):
+    """RF23 + RN10: corpo {"nota": 1..5, "comentario": "..."}."""
+    entrada = s.AvaliacaoSerializer(data=request.data)
+    entrada.is_valid(raise_exception=True)
+    regras.avaliar(pk, request.user, **entrada.validated_data)
+    return Response(s.corrida(_da_parte(request, pk), request.user), status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@permission_classes([EhParte])
+def historico(request):
+    """RF25: ?pagina=N, 20 por página."""
+    try:
+        pagina = max(int(request.query_params.get("pagina", 1)), 1)
+    except ValueError:
+        pagina = 1
+    corridas = regras.historico(request.user)
+    inicio = (pagina - 1) * POR_PAGINA
+    itens = list(corridas[inicio : inicio + POR_PAGINA + 1])  # +1 para saber se há próxima
+    return Response({
+        "pagina": pagina,
+        "tem_proxima": len(itens) > POR_PAGINA,
+        "corridas": [s.item_historico(c, request.user) for c in itens[:POR_PAGINA]],
+    })
+
+
+@api_view(["GET"])
+@permission_classes([EhMotorista])
+def ganhos(request):
+    """RF22: ?periodo=hoje|7dias|30dias|mes ou ?de=AAAA-MM-DD&ate=AAAA-MM-DD."""
+    entrada = s.PeriodoSerializer(data=request.query_params)
+    entrada.is_valid(raise_exception=True)
+    return Response(s.ganhos(regras.ganhos(request.user, *entrada.datas())))
+
+
+@api_view(["GET"])
+@permission_classes([EhMotorista])
+def minha_nota(request):
+    """RF24: média e quantidade de avaliações do motorista logado."""
+    return Response(s.nota(request.user))
+

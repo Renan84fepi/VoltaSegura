@@ -194,3 +194,104 @@ class RecusaCorrida(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["corrida", "motorista"], name="recusa_unica")
         ]
+
+
+class Pagamento(models.Model):
+    """Pagamento simulado gerado ao finalizar a corrida (RF19, RF20).
+
+    Os valores ficam em campos separados (RNF09) e são calculados com o
+    percentual guardado na corrida, não com a configuração atual.
+    """
+
+    class Status(models.TextChoices):
+        PENDENTE = "pendente", "Aguardando pagamento"
+        APROVADO = "aprovado", "Aprovado"
+        RECUSADO = "recusado", "Recusado"
+        ESTORNADO = "estornado", "Estornado"
+
+    corrida = models.OneToOneField(Corrida, on_delete=models.PROTECT, related_name="pagamento")
+    forma = models.CharField(
+        "forma de pagamento", max_length=10, choices=Corrida.FormaPagamento.choices
+    )
+    valor_total = models.DecimalField("valor total (R$)", max_digits=10, decimal_places=2)
+    percentual_plataforma = models.DecimalField(
+        "comissão da plataforma (%)", max_digits=5, decimal_places=2
+    )
+    taxa_plataforma = models.DecimalField("taxa da plataforma (R$)", max_digits=10, decimal_places=2)
+    valor_motorista = models.DecimalField("repasse ao motorista (R$)", max_digits=10, decimal_places=2)
+    status = models.CharField(
+        "status", max_length=10, choices=Status.choices, default=Status.PENDENTE
+    )
+    # Identificador da transação no "gateway" simulado (aparece no recibo).
+    transacao = models.CharField("transação (simulada)", max_length=32, unique=True)
+    tentativas = models.PositiveSmallIntegerField("tentativas de pagamento", default=0)
+    criado_em = models.DateTimeField("gerado em", default=timezone.now)
+    pago_em = models.DateTimeField("aprovado em", null=True, blank=True)
+    estornado_em = models.DateTimeField("estornado em", null=True, blank=True)
+    atualizado_em = models.DateTimeField("atualizado em", auto_now=True)
+
+    class Meta:
+        verbose_name = "pagamento"
+        verbose_name_plural = "pagamentos"
+        ordering = ["-criado_em"]
+        constraints = [
+            # RN08: a divisão sempre fecha o total.
+            models.CheckConstraint(
+                condition=Q(valor_total=models.F("taxa_plataforma") + models.F("valor_motorista")),
+                name="pagamento_divisao_fecha_total",
+            ),
+        ]
+
+    def __str__(self):
+        return f"Pagamento da corrida #{self.corrida_id} — {self.get_status_display()}"
+
+
+class EventoPagamento(models.Model):
+    """Histórico do pagamento: cada mudança de status com data, hora e autor (RNF09)."""
+
+    pagamento = models.ForeignKey(Pagamento, on_delete=models.CASCADE, related_name="eventos")
+    status_anterior = models.CharField(
+        "de", max_length=10, choices=Pagamento.Status.choices, blank=True
+    )
+    status_novo = models.CharField("para", max_length=10, choices=Pagamento.Status.choices)
+    autor = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+",
+        verbose_name="autor",
+    )
+    observacao = models.TextField("observação", blank=True)
+    criado_em = models.DateTimeField("em", default=timezone.now)
+
+    class Meta:
+        verbose_name = "evento do pagamento"
+        verbose_name_plural = "eventos do pagamento"
+        ordering = ["criado_em", "id"]
+
+    def __str__(self):
+        return f"{self.get_status_anterior_display() or '—'} → {self.get_status_novo_display()}"
+
+
+class Avaliacao(models.Model):
+    """Nota do cliente para o motorista (RF23). Uma por corrida finalizada (RN10)."""
+
+    corrida = models.OneToOneField(Corrida, on_delete=models.PROTECT, related_name="avaliacao")
+    # Copiado da corrida para calcular a média do motorista sem juntar tabelas (RF24).
+    motorista = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="avaliacoes_recebidas",
+        verbose_name="motorista",
+    )
+    nota = models.PositiveSmallIntegerField(
+        "nota", validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    comentario = models.TextField("comentário", max_length=500, blank=True)
+    criada_em = models.DateTimeField("avaliada em", default=timezone.now)
+
+    class Meta:
+        verbose_name = "avaliação"
+        verbose_name_plural = "avaliações"
+        ordering = ["-criada_em"]
+        constraints = [
+            models.CheckConstraint(condition=Q(nota__gte=1, nota__lte=5), name="nota_de_1_a_5"),
+        ]
+
+    def __str__(self):
+        return f"{self.nota}★ — corrida #{self.corrida_id}"

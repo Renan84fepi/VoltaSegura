@@ -1,22 +1,28 @@
-"""Regras de negócio da disponibilidade e das corridas.
+"""Regras de negócio da disponibilidade, das corridas, do pagamento e da avaliação.
 
 As views (páginas e API) só chamam estas funções; nenhuma regra fica na view.
-Toda mudança de status passa por `_mudar_status`, que valida a sequência (RN04)
-e registra o evento (RNF09).
+Toda mudança de status passa por `_mudar_status` (corrida, RN04) ou por
+`_mudar_status_pagamento`, que validam a sequência e registram o evento (RNF09).
 """
 import secrets
+import uuid
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import IntegrityError, transaction
+from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 from geopy.distance import geodesic
 
 from motoristas.models import AprovacaoMixin, PerfilMotorista, impedimentos_online
 
-from .models import STATUS_ATIVOS, Configuracao, Corrida, EventoCorrida, RecusaCorrida
+from .models import (
+    STATUS_ATIVOS, Avaliacao, Configuracao, Corrida, EventoCorrida, EventoPagamento, Pagamento,
+    RecusaCorrida,
+)
 
 Status = Corrida.Status
+StatusPagamento = Pagamento.Status
 Aprovacao = AprovacaoMixin.Status
 
 CENTAVO = Decimal("0.01")
@@ -39,6 +45,15 @@ TRANSICOES = {
 # sendo conduzido; o motorista só cancela depois de aceitar, e com motivo.
 CANCELAVEL_PELO_CLIENTE = {Status.SOLICITADA, Status.ACEITA, Status.A_CAMINHO, Status.CHEGOU}
 CANCELAVEL_PELO_MOTORISTA = {Status.ACEITA, Status.A_CAMINHO, Status.CHEGOU}
+
+# RF21: pagamento simulado. Recusado pode ser tentado de novo; só o aprovado é
+# estornado; estornado é final.
+TRANSICOES_PAGAMENTO = {
+    StatusPagamento.PENDENTE: {StatusPagamento.APROVADO, StatusPagamento.RECUSADO},
+    StatusPagamento.RECUSADO: {StatusPagamento.APROVADO, StatusPagamento.RECUSADO},
+    StatusPagamento.APROVADO: {StatusPagamento.ESTORNADO},
+}
+EM_ABERTO = [StatusPagamento.PENDENTE, StatusPagamento.RECUSADO]
 
 
 class RegraViolada(Exception):
@@ -89,6 +104,19 @@ def corrida_ativa_do_cliente(cliente):
 
 def corrida_ativa_do_motorista(motorista):
     return Corrida.objects.filter(motorista=motorista, status__in=STATUS_ATIVOS).first()
+
+
+def pagamento_em_aberto_do_cliente(cliente):
+    return Pagamento.objects.filter(corrida__cliente=cliente, status__in=EM_ABERTO).first()
+
+
+def historico(usuario):
+    """RF25: corridas em que o usuário foi cliente ou motorista, da mais nova à mais antiga."""
+    return (
+        Corrida.objects.filter(Q(cliente=usuario) | Q(motorista=usuario))
+        .select_related("cliente", "motorista", "pagamento", "avaliacao")
+        .order_by("-criada_em")
+    )
 
 
 def pode_cancelar(corrida, usuario):
@@ -258,6 +286,8 @@ def solicitar(cliente, veiculo, origem, destino, forma_pagamento):
         raise RegraViolada("Escolha um dos seus veículos.")
     if corrida_ativa_do_cliente(cliente):
         raise RegraViolada("Você já tem uma corrida ativa.", 409)  # RN09
+    if pagamento_em_aberto_do_cliente(cliente):  # regra da dupla: pague a anterior antes
+        raise RegraViolada("Pague a corrida anterior antes de pedir outra.", 409)
     distancia, preco, config = estimar(origem[1], origem[2], destino[1], destino[2])
     try:
         with transaction.atomic():
@@ -334,8 +364,12 @@ def informar_chegada(corrida_id, motorista):  # RF14
     return _acao_do_motorista(corrida_id, motorista, Status.CHEGOU)
 
 
-def finalizar(corrida_id, motorista):  # RF16
-    return _acao_do_motorista(corrida_id, motorista, Status.FINALIZADA)
+def finalizar(corrida_id, motorista):
+    """RF16 + RF19: finaliza e gera o pagamento na mesma transação (ou nenhum dos dois)."""
+    with transaction.atomic():
+        corrida = _acao_do_motorista(corrida_id, motorista, Status.FINALIZADA)
+        _gerar_pagamento(corrida, motorista)
+    return corrida
 
 
 def iniciar(corrida_id, motorista, codigo):
@@ -377,3 +411,159 @@ def cancelar(corrida_id, usuario, motivo=""):
         corrida.motivo_cancelamento = motivo
         _mudar_status(corrida, Status.CANCELADA, usuario, motivo)
     return corrida
+
+
+# ---------------------------------------------------------------- pagamento simulado
+
+def _gerar_pagamento(corrida, autor):
+    """RF19/RF20: total, taxa e repasse em campos separados, com o % guardado na corrida."""
+    taxa, repasse = dividir_valor(corrida.preco_estimado, corrida.percentual_plataforma)
+    pagamento = Pagamento.objects.create(
+        corrida=corrida,
+        forma=corrida.forma_pagamento,
+        valor_total=corrida.preco_estimado,
+        percentual_plataforma=corrida.percentual_plataforma,
+        taxa_plataforma=taxa,
+        valor_motorista=repasse,
+        transacao=uuid.uuid4().hex,
+    )
+    EventoPagamento.objects.create(
+        pagamento=pagamento, status_novo=StatusPagamento.PENDENTE, autor=autor
+    )
+    return pagamento
+
+
+def _mudar_status_pagamento(pagamento, novo, autor, observacao=""):
+    if novo not in TRANSICOES_PAGAMENTO.get(pagamento.status, set()):
+        raise RegraViolada(
+            f"Pagamento “{pagamento.get_status_display()}” não pode passar "
+            f"para “{StatusPagamento(novo).label}”.",
+            409,
+        )
+    anterior = pagamento.status
+    pagamento.status = novo
+    agora = timezone.now()
+    if novo == StatusPagamento.APROVADO:
+        pagamento.pago_em = agora
+    elif novo == StatusPagamento.ESTORNADO:
+        pagamento.estornado_em = agora
+    pagamento.save()
+    EventoPagamento.objects.create(
+        pagamento=pagamento, status_anterior=anterior, status_novo=novo,
+        autor=autor, observacao=observacao,
+    )
+
+
+def pagar(corrida_id, cliente, aprovar=True):
+    """RF21: o "gateway" simulado aprova ou recusa. Recusado pode ser pago de novo.
+
+    `aprovar=False` força a recusa, para demonstrar esse caminho.
+    """
+    with transaction.atomic():
+        # Trava o pagamento: dois cliques em "Pagar" não aprovam duas vezes.
+        pagamento = (
+            Pagamento.objects.select_for_update()
+            .filter(corrida_id=corrida_id, corrida__cliente=cliente)
+            .first()
+        )
+        if pagamento is None:
+            if Corrida.objects.filter(pk=corrida_id, cliente=cliente).exists():
+                raise RegraViolada("O pagamento é gerado quando a corrida é finalizada.", 409)
+            raise RegraViolada("Corrida não encontrada.", 404)
+        if pagamento.status == StatusPagamento.APROVADO:
+            raise RegraViolada("Esta corrida já está paga.", 409)
+        pagamento.tentativas += 1
+        novo = StatusPagamento.APROVADO if aprovar else StatusPagamento.RECUSADO
+        observacao = f"{pagamento.get_forma_display()} (simulado), tentativa {pagamento.tentativas}"
+        _mudar_status_pagamento(pagamento, novo, cliente, observacao)
+    return pagamento
+
+
+def estornar(pagamento_id, autor, motivo="Estorno pela administração"):
+    """RF21: só o pagamento aprovado é estornado. Feito pelo administrador."""
+    with transaction.atomic():
+        pagamento = Pagamento.objects.select_for_update().filter(pk=pagamento_id).first()
+        if pagamento is None:
+            raise RegraViolada("Pagamento não encontrado.", 404)
+        if pagamento.status != StatusPagamento.APROVADO:
+            raise RegraViolada("Só pagamentos aprovados podem ser estornados.", 409)
+        _mudar_status_pagamento(pagamento, StatusPagamento.ESTORNADO, autor, motivo)
+    return pagamento
+
+
+PERIODOS = {"hoje": 0, "7dias": 6, "30dias": 29}
+
+
+def periodo(nome, hoje=None):
+    """Início e fim (datas, inclusive) dos períodos prontos da tela de ganhos."""
+    hoje = hoje or timezone.localdate()
+    if nome == "mes":
+        return hoje.replace(day=1), hoje
+    return hoje - timedelta(days=PERIODOS.get(nome, PERIODOS["7dias"])), hoje
+
+
+def ganhos(motorista, inicio, fim):
+    """RF22: repasses das corridas finalizadas no período (datas no fuso local).
+
+    Recebido = pagamentos aprovados. Em aberto e estornados aparecem separados.
+    """
+    if inicio > fim:
+        raise RegraViolada("A data inicial deve ser anterior à final.")
+    pagamentos = (
+        Pagamento.objects.filter(
+            corrida__motorista=motorista, criado_em__date__gte=inicio, criado_em__date__lte=fim
+        )
+        .select_related("corrida")
+        .order_by("-criado_em")
+    )
+    zero = Decimal("0.00")
+
+    def soma(*status):
+        total = pagamentos.filter(status__in=status).aggregate(t=Sum("valor_motorista"))["t"]
+        return total or zero
+
+    return {
+        "inicio": inicio,
+        "fim": fim,
+        "recebido": soma(StatusPagamento.APROVADO),
+        "em_aberto": soma(*EM_ABERTO),
+        "estornado": soma(StatusPagamento.ESTORNADO),
+        "corridas_pagas": pagamentos.filter(status=StatusPagamento.APROVADO).count(),
+        "pagamentos": list(pagamentos),
+    }
+
+
+# ---------------------------------------------------------------- avaliação
+
+def avaliar(corrida_id, cliente, nota, comentario=""):
+    """RF23 + RN10: só depois de finalizada, uma vez por corrida, só pelo cliente."""
+    if not 1 <= nota <= 5:
+        raise RegraViolada("A nota deve ser de 1 a 5.")
+    with transaction.atomic():
+        corrida = _travar(corrida_id)
+        if corrida.cliente_id != cliente.pk:
+            raise RegraViolada("Corrida não encontrada.", 404)
+        if corrida.status != Status.FINALIZADA:
+            raise RegraViolada("Só é possível avaliar depois que a corrida for finalizada.", 409)
+        if Avaliacao.objects.filter(corrida=corrida).exists():
+            raise RegraViolada("Esta corrida já foi avaliada.", 409)
+        try:
+            with transaction.atomic():
+                avaliacao = Avaliacao.objects.create(
+                    corrida=corrida, motorista_id=corrida.motorista_id, nota=nota,
+                    comentario=comentario.strip(),
+                )
+        except IntegrityError:  # última barreira: OneToOne no banco
+            raise RegraViolada("Esta corrida já foi avaliada.", 409)
+    return avaliacao
+
+
+def nota_do_motorista(motorista):
+    """RF24: média (1 casa) e quantidade de avaliações. Sem avaliações → média None."""
+    resultado = Avaliacao.objects.filter(motorista=motorista).aggregate(
+        media=Avg("nota"), total=Count("id")
+    )
+    media = resultado["media"]
+    if media is not None:
+        media = Decimal(str(media)).quantize(Decimal("0.1"), ROUND_HALF_UP)
+    return {"media": media, "total": resultado["total"]}

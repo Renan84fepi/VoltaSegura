@@ -116,11 +116,47 @@ const VS = (() => {
     }).join("")}</ol>`;
   }
 
+  const estrelas = (nota) => "★".repeat(nota) + "☆".repeat(5 - nota);
+
+  // RF24: "★ 4,8 (12)" ou "novo no VoltaSegura".
+  function notaTexto(nota) {
+    if (!nota || !nota.media) return "• novo no VoltaSegura";
+    return `• ★ ${String(nota.media).replace(".", ",")} (${nota.total})`;
+  }
+
+  // RNF02: último estado conhecido da corrida ativa, lido pela página offline.
+  // Só o essencial, e apagado quando a corrida termina ou o usuário sai.
+  const CHAVE_CORRIDA = "vs:corrida";
+  function guardarCorrida(c) {
+    try {
+      if (!c || c.status === "finalizada" || c.status === "cancelada") {
+        localStorage.removeItem(CHAVE_CORRIDA);
+        return;
+      }
+      const outro = c.motorista || c.cliente;
+      localStorage.setItem(CHAVE_CORRIDA, JSON.stringify({
+        id: c.id,
+        status_texto: c.status_texto,
+        origem: c.origem_endereco,
+        destino: c.destino_endereco,
+        codigo: c.codigo_confirmacao || null,
+        contato: outro ? { nome: outro.nome, telefone: outro.telefone } : null,
+        endereco: location.pathname,
+        salvo_em: new Date().toISOString(),
+      }));
+    } catch {
+      // Sem armazenamento (modo privado): a página offline só não mostra o resumo.
+    }
+  }
+
   function mostrarAlerta(elemento, mensagem, tipo = "danger") {
     elemento.className = `alert alert-${tipo}`;
     elemento.textContent = mensagem;
     elemento.hidden = !mensagem;
   }
 
-  return { api, ErroApi, repetir, dinheiro, distancia, hora, esc, mensagemGps, posicaoAtual, etapasHtml, mostrarAlerta };
+  return {
+    api, ErroApi, repetir, dinheiro, distancia, hora, esc, mensagemGps, posicaoAtual, etapasHtml,
+    mostrarAlerta, estrelas, notaTexto, guardarCorrida,
+  };
 })();

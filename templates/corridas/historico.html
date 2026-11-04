@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load formato %}
+{% block titulo %}Histórico — VoltaSegura{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-3">Minhas corridas</h1>
+{% for c in corridas %}
+  <div class="card mb-2"><div class="card-body">
+    <div class="d-flex justify-content-between align-items-start">
+      <div class="small text-muted">#{{ c.pk }} • {{ c.criada_em|date:"d/m/Y H:i" }}</div>
+      <span class="badge {% if c.status == 'finalizada' %}text-bg-success{% elif c.status == 'cancelada' %}text-bg-secondary{% else %}text-bg-primary{% endif %}">{{ c.get_status_display }}</span>
+    </div>
+    <div class="small mt-1"><strong>De:</strong> {{ c.origem_endereco }}</div>
+    <div class="small"><strong>Para:</strong> {{ c.destino_endereco }} ({{ c.distancia_km|km }})</div>
+    {% if user.eh_cliente %}
+      {% if c.motorista %}<div class="small">Motorista: {{ c.motorista.nome }}</div>{% endif %}
+    {% else %}
+      <div class="small">Cliente: {{ c.cliente.nome }}</div>
+    {% endif %}
+    {% if c.pagamento %}
+      <div class="mt-1">
+        {% if user.eh_cliente %}<strong>{{ c.pagamento.valor_total|reais }}</strong>
+        {% else %}Você recebe <strong>{{ c.pagamento.valor_motorista|reais }}</strong>{% endif %}
+        <span class="small text-muted">• {{ c.pagamento.get_forma_display }} • {{ c.pagamento.get_status_display }}</span>
+      </div>
+    {% endif %}
+    {% if c.avaliacao %}<div class="text-warning" title="Nota {{ c.avaliacao.nota }}">{{ c.avaliacao.nota|estrelas }}</div>{% endif %}
+    <div class="d-flex gap-2 mt-2">
+      {% if user.eh_cliente %}
+        {% if c.ativa %}<a class="btn btn-primary btn-sm flex-fill" href="{% url 'corridas:acompanhar' c.pk %}">Acompanhar</a>
+        {% elif c.pagamento.status == 'pendente' or c.pagamento.status == 'recusado' %}<a class="btn btn-warning btn-sm flex-fill" href="{% url 'corridas:acompanhar' c.pk %}">Pagar</a>
+        {% elif c.status == 'finalizada' and not c.avaliacao %}<a class="btn btn-outline-warning btn-sm flex-fill" href="{% url 'corridas:acompanhar' c.pk %}">Avaliar</a>
+        {% endif %}
+      {% endif %}
+      {% if c.pagamento %}<a class="btn btn-outline-secondary btn-sm flex-fill" href="{% url 'corridas:recibo' c.pk %}">Recibo</a>{% endif %}
+    </div>
+  </div></div>
+{% empty %}
+  <p class="text-muted">Nenhuma corrida ainda.</p>
+{% endfor %}
+
+{% if is_paginated %}
+<nav class="d-flex justify-content-between mt-3">
+  {% if page_obj.has_previous %}<a class="btn btn-outline-secondary" href="?page={{ page_obj.previous_page_number }}">← Mais novas</a>{% else %}<span></span>{% endif %}
+  <span class="align-self-center small text-muted">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a class="btn btn-outline-secondary" href="?page={{ page_obj.next_page_number }}">Mais antigas →</a>{% else %}<span></span>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

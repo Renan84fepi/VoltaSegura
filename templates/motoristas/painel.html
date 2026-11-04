@@ -2,7 +2,12 @@
 {% load static %}
 {% block titulo %}Painel do motorista — VoltaSegura{% endblock %}
 {% block conteudo %}
-<h1 class="h3 mb-3">Olá, {{ user.get_short_name }}</h1>
+<h1 class="h3 mb-1">Olá, {{ user.get_short_name }}</h1>
+<p class="text-muted mb-3">
+  {% if nota.media %}<span class="text-warning">★</span> {{ nota.media }} • {{ nota.total }} avaliaç{{ nota.total|pluralize:"ão,ões" }}
+  {% else %}Você ainda não tem avaliações.{% endif %}
+  • <a href="{% url 'corridas:ganhos' %}">Meus ganhos</a>
+</p>
 
 <div id="trabalho"
      data-url-disponibilidade="{% url 'api:disponibilidade' %}"
@@ -79,6 +84,6 @@
 </div></div>
 {% endblock %}
 {% block scripts %}
-<script src="{% static 'corridas/comum.js' %}"></script>
-<script src="{% static 'corridas/motorista.js' %}"></script>
+<script src="{% static 'corridas/comum.js' %}?v={{ versao_estaticos }}"></script>
+<script src="{% static 'corridas/motorista.js' %}?v={{ versao_estaticos }}"></script>
 {% endblock %}

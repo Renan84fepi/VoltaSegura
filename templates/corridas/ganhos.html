@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load formato %}
+{% block titulo %}Meus ganhos — VoltaSegura{% endblock %}
+{% block conteudo %}
+<h1 class="h3 mb-1">Meus ganhos</h1>
+<p class="text-muted mb-3">
+  {% if nota.media %}<span class="text-warning">★</span> {{ nota.media }} ({{ nota.total }} avaliaç{{ nota.total|pluralize:"ão,ões" }})
+  {% else %}Ainda sem avaliações{% endif %}
+</p>
+
+<div class="d-flex flex-wrap gap-2 mb-2">
+  {% for valor, texto in periodos %}
+    <a class="btn btn-sm {% if periodo == valor %}btn-primary{% else %}btn-outline-primary{% endif %}" href="?periodo={{ valor }}">{{ texto }}</a>
+  {% endfor %}
+</div>
+<form method="get" class="d-flex gap-2 align-items-end mb-3">
+  <div class="flex-fill"><label class="form-label small mb-0" for="de">De</label>
+    <input id="de" name="de" type="date" class="form-control" value="{{ ganhos.inicio|date:'Y-m-d' }}"></div>
+  <div class="flex-fill"><label class="form-label small mb-0" for="ate">Até</label>
+    <input id="ate" name="ate" type="date" class="form-control" value="{{ ganhos.fim|date:'Y-m-d' }}"></div>
+  <button class="btn btn-outline-secondary" type="submit">Filtrar</button>
+</form>
+{% if erro_filtro %}<div class="alert alert-warning">{{ erro_filtro }}</div>{% endif %}
+
+<div class="card mb-3 border-success"><div class="card-body text-center">
+  <div class="small text-muted">{{ ganhos.inicio|date:"d/m/Y" }} a {{ ganhos.fim|date:"d/m/Y" }}</div>
+  <div class="display-6 fw-bold text-success">{{ ganhos.recebido|reais }}</div>
+  <div class="small">recebidos em {{ ganhos.corridas_pagas }} corrida{{ ganhos.corridas_pagas|pluralize }}</div>
+  {% if ganhos.em_aberto %}<div class="small text-warning-emphasis mt-1">Aguardando pagamento do cliente: {{ ganhos.em_aberto|reais }}</div>{% endif %}
+  {% if ganhos.estornado %}<div class="small text-muted">Estornados: {{ ganhos.estornado|reais }}</div>{% endif %}
+</div></div>
+
+{% for p in ganhos.pagamentos %}
+  <div class="card mb-2"><div class="card-body py-2">
+    <div class="d-flex justify-content-between">
+      <span class="small text-muted">#{{ p.corrida_id }} • {{ p.criado_em|date:"d/m H:i" }}</span>
+      <span class="small">{{ p.get_status_display }}</span>
+    </div>
+    <div class="small text-truncate">{{ p.corrida.origem_endereco }} → {{ p.corrida.destino_endereco }}</div>
+    <div class="small">Total {{ p.valor_total|reais }} − taxa {{ p.taxa_plataforma|reais }} =
+      <strong class="{% if p.status == 'aprovado' %}text-success{% elif p.status == 'estornado' %}text-decoration-line-through{% endif %}">{{ p.valor_motorista|reais }}</strong>
+      <a class="ms-1" href="{% url 'corridas:recibo' p.corrida_id %}">recibo</a></div>
+  </div></div>
+{% empty %}
+  <p class="text-muted text-center">Nenhuma corrida finalizada neste período.</p>
+{% endfor %}
+{% endblock %}

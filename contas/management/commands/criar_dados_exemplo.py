@@ -1,6 +1,7 @@
 """Cria usuários de exemplo para demonstração e testes manuais."""
 import io
 from datetime import timedelta
+from decimal import Decimal
 
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -9,11 +10,13 @@ from django.utils import timezone
 from PIL import Image
 
 from contas.models import Usuario
-from corridas.models import Configuracao
+from corridas import regras
+from corridas.models import Configuracao, Corrida, Pagamento
 from motoristas.models import Bicicleta, DadosRepasse, PerfilMotorista
 from veiculos.models import Veiculo
 
 Status = PerfilMotorista.Status
+PREFIXO_EXEMPLO = "[exemplo]"
 
 
 def imagem_falsa(cor):
@@ -94,6 +97,7 @@ class Command(BaseCommand):
             )
 
         Configuracao.atual()  # tarifas padrão (editáveis no admin)
+        self._historico_exemplo()
 
         self.stdout.write(self.style.SUCCESS("Dados de exemplo prontos."))
         self.stdout.write(f"Senha de todos: {senha}")
@@ -104,6 +108,50 @@ class Command(BaseCommand):
         self.stdout.write(
             "Corrida de teste: coleta '-22.2306, -45.9356' (Centro) e destino '-22.2650, -45.9000'."
         )
+
+    def _historico_exemplo(self):
+        """Corridas antigas de Carlos (finalizadas, pagas e avaliadas) para a tela de
+        ganhos (RF22), o histórico (RF25) e a nota média (RF24). Passam pelas regras."""
+        if Corrida.objects.filter(origem_endereco__startswith=PREFIXO_EXEMPLO).exists():
+            return
+        carlos = Usuario.objects.get(email="carlos@exemplo.com")
+        perfil = carlos.perfil_motorista
+        # (cliente, dias atrás, destino, nota, comentário, resultado do pagamento)
+        corridas = [
+            ("ana@exemplo.com", 1, ("-22.2650", "-45.9000"), 5, "Muito educado e pontual.", "aprovado"),
+            ("bruno@exemplo.com", 3, ("-22.2500", "-45.9200"), 4, "", "aprovado"),
+            ("ana@exemplo.com", 12, ("-22.2100", "-45.9500"), 5, "Cuidou bem do carro.", "estornado"),
+        ]
+        for email, dias, (lat, lng), nota, comentario, resultado in corridas:
+            cliente = Usuario.objects.get(email=email)
+            if regras.corrida_ativa_do_cliente(cliente) or regras.pagamento_em_aberto_do_cliente(cliente):
+                self.stdout.write(self.style.WARNING(
+                    f"{email} tem corrida ativa ou pagamento em aberto: corrida antiga de exemplo não criada."
+                ))
+                continue
+            # Deixa Carlos online e no Centro só para receber a oferta.
+            PerfilMotorista.objects.filter(pk=perfil.pk).update(
+                online=True, latitude="-22.230600", longitude="-45.935600",
+                localizacao_em=timezone.now(),
+            )
+            corrida = regras.solicitar(
+                cliente, cliente.veiculos.first(),
+                (f"{PREFIXO_EXEMPLO} Centro", Decimal("-22.230600"), Decimal("-45.935600")),
+                (f"{PREFIXO_EXEMPLO} Destino", Decimal(lat), Decimal(lng)), "pix",
+            )
+            regras.aceitar(corrida.pk, carlos)
+            regras.ir_a_caminho(corrida.pk, carlos)
+            regras.informar_chegada(corrida.pk, carlos)
+            regras.iniciar(corrida.pk, carlos, corrida.codigo_confirmacao)
+            regras.finalizar(corrida.pk, carlos)
+            regras.pagar(corrida.pk, cliente)
+            if resultado == "estornado":
+                regras.estornar(corrida.pagamento.pk, None, "Exemplo de estorno")
+            regras.avaliar(corrida.pk, cliente, nota, comentario)
+            quando = timezone.now() - timedelta(days=dias)
+            Corrida.objects.filter(pk=corrida.pk).update(criada_em=quando)
+            Pagamento.objects.filter(corrida=corrida).update(criado_em=quando)
+        PerfilMotorista.objects.filter(pk=perfil.pk).update(online=False)
 
     @staticmethod
     def _avaliar(obj, status, admin, motivo):

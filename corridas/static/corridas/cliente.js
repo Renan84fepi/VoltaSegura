@@ -1,5 +1,5 @@
 "use strict";
-// Telas do cliente: solicitar (C2/C3) e acompanhar (C4).
+// Telas do cliente: solicitar (C2/C3), acompanhar (C4) e, ao final, pagar e avaliar (C5).
 
 // ------------------------------------------------------------ solicitar
 (() => {
@@ -118,6 +118,52 @@
     return `Motorista a ${VS.distancia(p.distancia_km)} ${alvo}${quando}`;
   }
 
+  // RF21: pagamento simulado, depois da finalização.
+  function pagamentoHtml(c) {
+    const p = c.pagamento;
+    if (!p) return "";
+    const recibo = `<a href="${VS.esc(raiz.dataset.urlRecibo)}">Ver recibo</a>`;
+    if (p.status === "aprovado") {
+      return `<div class="alert alert-success"><strong>Pagamento aprovado.</strong>
+        ${VS.dinheiro(p.valor_total)} • ${VS.esc(p.forma)} (simulado) • ${recibo}</div>`;
+    }
+    if (p.status === "estornado") {
+      return `<div class="alert alert-secondary"><strong>Pagamento estornado.</strong> ${recibo}</div>`;
+    }
+    if (!p.pode_pagar) return "";
+    return `<div class="card mb-3 border-warning"><div class="card-body">
+      <h2 class="h5">Pagamento</h2>
+      ${p.status === "recusado" ? `<div class="alert alert-danger py-2">Pagamento recusado. Tente novamente.</div>` : ""}
+      <p class="mb-2">Total: <strong class="fs-4">${VS.dinheiro(p.valor_total)}</strong> • ${VS.esc(p.forma)}</p>
+      <button id="btn-pagar" class="btn btn-success btn-lg w-100 mb-2">Pagar com ${VS.esc(p.forma)}</button>
+      ${raiz.dataset.simulador ? `<button id="btn-recusar" class="btn btn-outline-warning btn-sm w-100">🧪 Simular pagamento recusado</button>` : ""}
+      <div class="form-text">Pagamento simulado: nenhum valor é cobrado de verdade.</div>
+    </div></div>`;
+  }
+
+  // RF23 + RN10: uma avaliação, só depois de finalizada.
+  function avaliacaoHtml(c) {
+    if (c.avaliacao) {
+      return `<div class="card mb-3"><div class="card-body">
+        <div class="small text-muted">Sua avaliação</div>
+        <div class="fs-4 text-warning">${VS.estrelas(c.avaliacao.nota)}</div>
+        ${c.avaliacao.comentario ? `<div class="small">${VS.esc(c.avaliacao.comentario)}</div>` : ""}
+      </div></div>`;
+    }
+    if (!c.pode_avaliar) return "";
+    const opcoes = [1, 2, 3, 4, 5].map((n) => `
+      <input type="radio" class="btn-check" name="nota" id="nota-${n}" value="${n}">
+      <label class="btn btn-outline-warning btn-lg flex-fill" for="nota-${n}">${n}★</label>`).join("");
+    return `<form id="form-avaliacao" class="card mb-3"><div class="card-body">
+      <h2 class="h5">Como foi o motorista?</h2>
+      <div class="d-flex gap-1 mb-2" role="group" aria-label="Nota de 1 a 5">${opcoes}</div>
+      <label class="form-label small" for="comentario">Comentário (opcional)</label>
+      <textarea id="comentario" class="form-control mb-2" maxlength="500" rows="2"></textarea>
+      <div id="erro-avaliacao" hidden></div>
+      <button class="btn btn-primary btn-lg w-100" type="submit">Enviar avaliação</button>
+    </div></form>`;
+  }
+
   function desenhar(c) {
     const m = c.motorista;
     const final = c.status === "finalizada" || c.status === "cancelada";
@@ -126,8 +172,9 @@
       html += `<div class="alert alert-secondary"><strong>Corrida cancelada.</strong>
         ${c.motivo_cancelamento ? `<br>Motivo: ${VS.esc(c.motivo_cancelamento)}` : ""}</div>`;
     } else if (c.status === "finalizada") {
-      html += `<div class="alert alert-success"><strong>Corrida finalizada!</strong><br>
-        Valor: ${VS.dinheiro(c.preco_estimado)} • ${VS.esc(c.forma_pagamento)}</div>`;
+      html += `<div class="alert alert-light border"><strong>Corrida finalizada!</strong>
+        Você chegou ao destino.</div>`;
+      html += pagamentoHtml(c) + avaliacaoHtml(c);
     } else {
       html += `<div class="card mb-3"><div class="card-body">${VS.etapasHtml(c.status)}</div></div>`;
     }
@@ -144,7 +191,8 @@
     if (m && !final) {
       html += `<div class="card mb-3"><div class="card-body">
         <h2 class="h6 mb-2">Seu motorista</h2>
-        <div class="fw-bold">${VS.esc(m.nome)}</div>
+        <div class="fw-bold">${VS.esc(m.nome)}
+          <span class="fw-normal small text-muted">${VS.notaTexto(m.nota)}</span></div>
         <div><a href="tel:${VS.esc(m.telefone)}">${VS.esc(m.telefone)}</a></div>
         ${m.bicicleta ? `<div class="small text-muted">Bicicleta: ${VS.esc(m.bicicleta)}
           (<a href="${VS.esc(m.foto_bicicleta)}" target="_blank" rel="noopener">ver foto</a>)</div>` : ""}
@@ -161,11 +209,43 @@
     if (c.pode_cancelar) {
       html += `<button id="btn-cancelar" class="btn btn-outline-danger btn-lg w-100">Cancelar corrida</button>`;
     }
-    if (final) {
+    if (final && !c.pagamento?.pode_pagar) {
       html += `<a class="btn btn-primary btn-lg w-100" href="${VS.esc(raiz.dataset.urlNova)}">Nova corrida</a>`;
     }
     painel.innerHTML = html;
     document.getElementById("btn-cancelar")?.addEventListener("click", cancelar);
+    document.getElementById("btn-pagar")?.addEventListener("click", () => pagar("aprovado"));
+    document.getElementById("btn-recusar")?.addEventListener("click", () => pagar("recusado"));
+    document.getElementById("form-avaliacao")?.addEventListener("submit", avaliar);
+  }
+
+  async function pagar(resultado) {
+    painel.querySelectorAll("#btn-pagar, #btn-recusar").forEach((b) => (b.disabled = true));
+    try {
+      desenhar(await VS.api(raiz.dataset.urlPagar, { metodo: "POST", dados: { resultado } }));
+      VS.mostrarAlerta(aviso, "");
+    } catch (e) {
+      VS.mostrarAlerta(aviso, e.message);
+      painel.querySelectorAll("#btn-pagar, #btn-recusar").forEach((b) => (b.disabled = false));
+    }
+  }
+
+  async function avaliar(evento) {
+    evento.preventDefault();
+    const erro = document.getElementById("erro-avaliacao");
+    const nota = painel.querySelector("input[name=nota]:checked");
+    if (!nota) return VS.mostrarAlerta(erro, "Escolha uma nota de 1 a 5.");
+    const botao = evento.target.querySelector("button[type=submit]");
+    botao.disabled = true;
+    try {
+      desenhar(await VS.api(raiz.dataset.urlAvaliar, {
+        metodo: "POST",
+        dados: { nota: Number(nota.value), comentario: document.getElementById("comentario").value },
+      }));
+    } catch (e) {
+      VS.mostrarAlerta(erro, e.message);
+      botao.disabled = false;
+    }
   }
 
   async function cancelar() {
@@ -182,6 +262,7 @@
     try {
       corrida = await VS.api(raiz.dataset.urlCorrida);
       VS.mostrarAlerta(aviso, "");
+      VS.guardarCorrida(corrida); // RNF02: a página offline mostra este último estado
     } catch (e) {
       VS.mostrarAlerta(aviso, e.message, "warning");
       return;

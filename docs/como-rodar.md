@@ -55,12 +55,36 @@ Tarifas, comissão, raio de oferta e motoristas por oferta ficam no admin, em **
 
 Sem internet, defina `GEOCODIFICACAO_ATIVA=False` no `.env`: a coleta pode usar a posição do aparelho e os endereços podem ser digitados como `latitude, longitude`.
 
+## Pagamento, avaliação e ganhos (Marco 4)
+5. Com a corrida finalizada, o cliente vê **Pagar com Pix/Cartão** (simulado). Com `DEBUG=True` há também **Simular pagamento recusado**; depois de recusado, é possível pagar de novo.
+6. O cliente dá a nota (1 a 5) e um comentário. O recibo fica em **Histórico → Recibo**.
+7. O motorista vê os ganhos em **Ganhos** (hoje, 7 dias, 30 dias, mês ou datas) e a nota média no painel.
+8. Estorno: admin → **Corridas → Pagamentos** → abra um pagamento **aprovado** → botão **Estornar (simulado)** no canto superior direito → informe o motivo e confirme. Também dá para estornar vários pela lista (marque as caixas → ação **Estornar**).
+
+Enquanto o pagamento estiver aguardando ou recusado, o cliente não consegue pedir outra corrida.
+O comando `criar_dados_exemplo` cria três corridas antigas de Carlos (pagas e avaliadas, uma estornada) para a tela de ganhos já ter dados.
+
+## Instalar como app e testar offline (PWA)
+- O botão **Instalar app** aparece na barra sempre que o site não está aberto como app instalado (em `localhost` ou HTTPS). No Chrome/Edge ele abre a instalação; nos outros navegadores, ou quando o Chrome ainda não ofereceu a instalação, mostra como instalar (iPhone: Safari → Compartilhar → **Adicionar à Tela de Início**; Firefox no computador não instala apps).
+- Para ver a página offline: abra uma corrida em andamento, depois DevTools → **Network → Offline** (ou modo avião no celular) e navegue/recarregue. Aparece o último estado da corrida (status, código e contato) e a página volta sozinha quando a conexão retorna.
+- Ao mudar arquivos estáticos guardados pelo service worker, aumente `VERSAO_CACHE` em `pwa/views.py`. Em desenvolvimento, DevTools → **Application → Service workers → Update on reload** evita cache antigo.
+
 ## Testar no celular (HTTPS)
-Use um túnel HTTPS (ex.: ngrok) e informe o endereço no `.env`:
+Abrir pelo IP da rede (ex.: `http://10.0.5.46:8000`) **não basta**: o navegador só instala o app, registra o service worker e libera o GPS em HTTPS ou `localhost`. Pelo IP o site abre, mas sem PWA e sem localização.
+
+Use um túnel HTTPS. Com o [ngrok](https://ngrok.com/download) (conta gratuita):
+```bash
+ngrok http 8000          # mostra um endereço como https://abc123.ngrok-free.app
+```
+Informe o endereço no `.env`. Em `ALLOWED_HOSTS` vai **só o nome** (sem `https://`); em `CSRF_TRUSTED_ORIGINS`, **com** `https://`:
 ```
 ALLOWED_HOSTS=localhost,127.0.0.1,abc123.ngrok-free.app
 CSRF_TRUSTED_ORIGINS=https://abc123.ngrok-free.app
 ```
+Depois recrie o container com `docker compose up -d` (o `docker compose restart` **não** relê o `.env`). O endereço do ngrok gratuito pode mudar a cada execução: atualize as duas linhas quando mudar.
+Alternativa sem conta: `cloudflared tunnel --url http://localhost:8000` (endereço `*.trycloudflare.com`, configurado do mesmo jeito).
+
+Atalho só para testes no Android, sem túnel: no Chrome do celular, abra `chrome://flags/#unsafely-treat-insecure-origin-as-secure`, informe `http://10.0.5.46:8000` (o IP do seu computador), ative e reinicie o Chrome.
 
 ## Pontos de atenção
 - `.env` e a pasta `media/` (uploads) **não** vão para o Git.

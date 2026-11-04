@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">Início</a> ›
+  <a href="{% url 'admin:corridas_pagamento_changelist' %}">Pagamentos</a> ›
+  <a href="{{ voltar }}">{{ pagamento }}</a> › Estornar
+</div>
+{% endblock %}
+{% block content %}
+{% if pagamento.status != "aprovado" %}
+  <p>Só pagamentos aprovados podem ser estornados. Situação atual: <strong>{{ pagamento.get_status_display }}</strong>.</p>
+  <p><a href="{{ voltar }}">Voltar</a></p>
+{% else %}
+  <p>Valor total: <strong>R$ {{ pagamento.valor_total }}</strong> ({{ pagamento.get_forma_display }}, simulado).
+     O repasse de R$ {{ pagamento.valor_motorista }} deixa de contar nos ganhos do motorista.</p>
+  <form method="post">{% csrf_token %}
+    <p><label for="motivo">Motivo (opcional):</label><br>
+      <textarea id="motivo" name="motivo" rows="3" cols="60" maxlength="300"></textarea></p>
+    <input type="submit" value="Confirmar estorno">
+    <a href="{{ voltar }}" class="button cancel-link">Cancelar</a>
+  </form>
+{% endif %}
+{% endblock %}

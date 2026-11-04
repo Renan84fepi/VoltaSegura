@@ -4,7 +4,7 @@ Projeto da disciplina de Backend, ministrada pelo professor Marcio.
 
 PWA desenvolvido em Django que conecta clientes a motoristas que conduzem **o próprio carro do cliente** até o destino. O motorista chega ao local com uma **minibicicleta elétrica dobrável**, transportada no porta-malas durante a corrida e utilizada para deixar o local após a conclusão do serviço.
 
-> **Status:** Marco 3 — Solicitação e corrida (em revisão). Marcos 1 e 2 concluídos.
+> **Status:** Marcos 1 a 4 concluídos. Próximo: Marco 5 — Entrega final.
 
 ## Equipe
 
@@ -56,8 +56,9 @@ Serão avaliadas após o Marco 2:
 |---|---|---|
 | 1 — Planejamento | Concluído | README, divisão de tarefas, prompt v1, plano de etapas e esboço das telas |
 | 2 — Base e cadastros | Concluído | Django + PostgreSQL + `.env`; contas (RF01); veículos (RF02); documentos, bicicleta e repasse do motorista (RF03–RF05); aprovação pelo administrador (RF26) |
-| 3 — Solicitação e corrida | Em revisão | Online/offline e localização (RF06–RF07); solicitação com estimativa e oferta aos mais próximos (RF08–RF11); ciclo da corrida com código (RF12–RF18); testes de RN01–RN05 |
-| 4 e 5 | Pendentes | Conforme o enunciado da disciplina |
+| 3 — Solicitação e corrida | Concluído | Online/offline e localização (RF06–RF07); solicitação com estimativa e oferta aos mais próximos (RF08–RF11); ciclo da corrida com código (RF12–RF18); testes de RN01–RN05 |
+| 4 — Pagamento, avaliação e PWA | Concluído | Pagamento simulado com divisão de valores (RF19–RF21); recibo e ganhos por período (RF22); avaliação e nota média (RF23–RF24, RN10); histórico (RF25); PWA instalável e página offline (RNF01–RNF02) |
+| 5 — Entrega final | Pendente | Conforme o enunciado da disciplina |
 
 ### Já implementado no Marco 2
 
@@ -81,6 +82,25 @@ Serão avaliadas após o Marco 2:
 - Tarifas, comissão, raio e motoristas por oferta editáveis no admin; corridas consultáveis com filtros.
 - Simulador de posição do motorista (somente com `DEBUG=True`).
 
+### Já implementado no Marco 4
+
+- Ao finalizar, o pagamento simulado é gerado na mesma transação: total, % e taxa da plataforma e repasse ao motorista em campos separados, com a comissão guardada no pedido (RN07/RN08: R$ 85,00 → R$ 17,00 + R$ 68,00).
+- Cliente paga pela tela da corrida (Pix ou cartão, simulados); o pagamento pode ser aprovado ou recusado (e tentado de novo) e o administrador estorna pelo admin. Cada mudança fica registrada com data, hora e autor.
+- Recibo da corrida para as partes; tela de ganhos do motorista por período (hoje, 7 dias, 30 dias, mês ou datas livres).
+- Avaliação de 1 a 5 com comentário, só depois de finalizada e uma vez por corrida (RN10); nota média no acompanhamento do cliente, no painel e nos ganhos do motorista e no admin.
+- Histórico paginado para cliente e motorista.
+- PWA: manifesto, ícones, service worker e botão "Instalar app"; sem conexão, página offline com o último estado da corrida ativa (status, código e contato), que recarrega sozinha quando a internet volta.
+
+### Pagamento simulado (RF21, regras da dupla)
+
+| De | Para | Quem |
+|---|---|---|
+| — | Aguardando pagamento | Sistema, ao finalizar a corrida |
+| Aguardando / recusado | Aprovado ou recusado | Cliente (o "gateway" simulado decide; em `DEBUG` há um botão para forçar a recusa) |
+| Aprovado | Estornado | Administrador (ação no admin) |
+
+Cliente com pagamento aguardando ou recusado não pede nova corrida: é levado de volta à corrida em aberto. Só pagamentos aprovados contam como ganho do motorista.
+
 ### Regras de cancelamento (RF17, definidas pela dupla)
 
 | Status | Cliente | Motorista |
@@ -102,6 +122,11 @@ Serão avaliadas após o Marco 2:
 | GET | `/api/corridas/ativa/` e `/api/corridas/<id>/` | As partes | Acompanhamento por polling (RF18) |
 | POST | `/api/corridas/<id>/aceitar/`, `recusar/`, `a-caminho/`, `chegou/`, `iniciar/` (`{"codigo"}`), `finalizar/` | Motorista | Ciclo da corrida (RN02–RN05) |
 | POST | `/api/corridas/<id>/cancelar/` | As partes | `{"motivo"}` (RF17) |
+| POST | `/api/corridas/<id>/pagar/` | Cliente | `{"resultado": "aprovado"\|"recusado"}`, padrão aprovado (RF21) |
+| POST | `/api/corridas/<id>/avaliar/` | Cliente | `{"nota": 1-5, "comentario"}` (RF23, RN10) |
+| GET | `/api/corridas/historico/?pagina=N` | As partes | Histórico, 20 por página (RF25) |
+| GET | `/api/motorista/ganhos/?periodo=hoje\|7dias\|30dias\|mes` ou `?de=&ate=` | Motorista | Ganhos por período (RF22) |
+| GET | `/api/motorista/nota/` | Motorista | Nota média e quantidade (RF24) |
 
 Erros de regra voltam como `{"detail": "mensagem"}` com 400, 403, 404 ou 409. A documentação Swagger (drf-spectacular) fica para o Marco 5.
 
@@ -117,7 +142,7 @@ Erros de regra voltam como `{"detail": "mensagem"}` com 400, 403, 404 ou 409. A 
 | Pillow | 13.0.0 |
 | django-environ | 0.14.0 |
 | Bootstrap | 5.3.8 (CDN) e JavaScript (Fetch API) |
-| Service Worker e Cache API | a partir do marco do PWA |
+| Service Worker e Cache API | sem biblioteca: `/sw.js`, `/manifest.webmanifest` e `/offline/` (app `pwa`) |
 | Git e GitHub | versionamento |
 
 As versões fixadas estão em [`requirements.txt`](requirements.txt).
@@ -145,7 +170,7 @@ Dependências adicionais deverão ser justificadas nesta documentação.
 - [Plano de etapas](docs/plano-de-etapas.md)
 - [Esboço das telas](docs/telas.md)
 - [Atualizações do Marco 2](docs/marco-2-atualizacoes.md)
-- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md); v3: [prompt-v3](docs/prompts/prompt-v3.md))
+- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md); v3: [prompt-v3](docs/prompts/prompt-v3.md); v4: [prompt-v4](docs/prompts/prompt-v4.md))
 
 Os prompts são versionados, com registros das alterações e justificativas em `docs/prompts/CHANGELOG.md`.
 

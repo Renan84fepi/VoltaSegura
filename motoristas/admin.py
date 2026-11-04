@@ -27,6 +27,7 @@ class PerfilMotoristaAdmin(AvaliacaoAdminMixin, admin.ModelAdmin):
         "cnh_ok",
         "status_aprovacao",
         "bicicleta_situacao",
+        "nota_media",
         "enviado_em",
     )
     list_filter = ("status_aprovacao",)
@@ -38,6 +39,13 @@ class PerfilMotoristaAdmin(AvaliacaoAdminMixin, admin.ModelAdmin):
     @admin.display(boolean=True, description="CNH válida")
     def cnh_ok(self, obj):
         return obj.cnh_valida
+
+    @admin.display(description="Nota (RF24)")
+    def nota_media(self, obj):
+        from corridas.regras import nota_do_motorista
+
+        nota = nota_do_motorista(obj.usuario)
+        return f"{nota['media']} ({nota['total']})" if nota["media"] is not None else "—"
 
     @admin.display(description="Bicicleta")
     def bicicleta_situacao(self, obj):

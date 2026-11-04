@@ -4,6 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block titulo %}VoltaSegura{% endblock %}</title>
+  <link rel="manifest" href="{% url 'pwa:manifesto' %}">
+  <meta name="theme-color" content="#212529">
+  <link rel="icon" type="image/png" sizes="192x192" href="{% static 'pwa/icone-192.png' %}">
+  <link rel="apple-touch-icon" href="{% static 'pwa/apple-touch-icon.png' %}">
+  <meta name="apple-mobile-web-app-title" content="VoltaSegura">
+  <meta name="mobile-web-app-capable" content="yes">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
   <style>
     body { background: #f5f7fa; }
@@ -18,18 +24,26 @@
     .etapas li.atual { color: #212529; font-weight: 700; }
   </style>
 </head>
-<body>
+<body data-sw="{% url 'pwa:service-worker' %}" data-autenticado="{% if user.is_authenticated %}1{% endif %}">
 <nav class="navbar navbar-dark bg-dark">
   <div class="container container-estreito">
     <a class="navbar-brand fw-bold" href="{% url 'home' %}">⚡ VoltaSegura</a>
+    <button id="btn-instalar" class="btn btn-warning btn-sm py-1 me-2" type="button" hidden>Instalar app</button>
     {% if user.is_authenticated %}
     {% if user.eh_cliente %}
     <div class="d-flex gap-3 ms-auto me-3">
       <a class="link-light" href="{% url 'corridas:solicitar' %}">Corrida</a>
+      <a class="link-light" href="{% url 'corridas:historico' %}">Histórico</a>
       <a class="link-light" href="{% url 'veiculos:lista' %}">Veículos</a>
     </div>
+    {% elif user.eh_motorista %}
+    <div class="d-flex gap-3 ms-auto me-3">
+      <a class="link-light" href="{% url 'motoristas:painel' %}">Painel</a>
+      <a class="link-light" href="{% url 'corridas:ganhos' %}">Ganhos</a>
+      <a class="link-light" href="{% url 'corridas:historico' %}">Histórico</a>
+    </div>
     {% endif %}
-    <form method="post" action="{% url 'logout' %}" class="m-0">
+    <form method="post" action="{% url 'logout' %}" class="m-0" id="form-sair">
       {% csrf_token %}
       <button class="btn btn-outline-light btn-sm" type="submit">Sair</button>
     </form>
@@ -38,11 +52,13 @@
 </nav>
 
 <main class="container container-estreito py-3">
+  <div id="ajuda-instalar" class="alert alert-info small" hidden></div>
   {% for mensagem in messages %}
     <div class="alert alert-{{ mensagem.tags }}" role="alert">{{ mensagem }}</div>
   {% endfor %}
   {% block conteudo %}{% endblock %}
 </main>
+<script src="{% static 'pwa/pwa.js' %}?v={{ versao_estaticos }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

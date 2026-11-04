@@ -11,5 +11,6 @@ urlpatterns = [
     path("motorista/", include("motoristas.urls")),
     path("corridas/", include("corridas.urls")),
     path("api/", include("corridas.api_urls")),
+    path("", include("pwa.urls")),
     path("", include("contas.urls")),
 ]

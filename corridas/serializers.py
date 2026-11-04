@@ -8,9 +8,10 @@ from veiculos.models import Veiculo
 
 from . import regras
 from .geocodificacao import EnderecoNaoEncontrado, geocodificar
-from .models import Corrida
+from .models import Corrida, Pagamento
 
 Status = Corrida.Status
+StatusPagamento = Pagamento.Status
 
 
 def coordenada(valor):
@@ -79,6 +80,40 @@ class CancelamentoSerializer(serializers.Serializer):
     motivo = serializers.CharField(max_length=300, required=False, allow_blank=True, default="")
 
 
+class PagamentoSerializer(serializers.Serializer):
+    """RF21: o resultado do "gateway" simulado. Sem informar, aprova."""
+
+    resultado = serializers.ChoiceField(
+        choices=[StatusPagamento.APROVADO, StatusPagamento.RECUSADO],
+        default=StatusPagamento.APROVADO,
+    )
+
+
+class AvaliacaoSerializer(serializers.Serializer):
+    nota = serializers.IntegerField(
+        min_value=1, max_value=5,
+        error_messages={"min_value": "A nota deve ser de 1 a 5.", "max_value": "A nota deve ser de 1 a 5."},
+    )
+    comentario = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")
+
+
+class PeriodoSerializer(serializers.Serializer):
+    """Ganhos: um período pronto ou as datas `de`/`ate` (AAAA-MM-DD)."""
+
+    periodo = serializers.ChoiceField(
+        choices=["hoje", "7dias", "30dias", "mes"], required=False, default="7dias"
+    )
+    de = serializers.DateField(required=False)
+    ate = serializers.DateField(required=False)
+
+    def datas(self):
+        d = self.validated_data
+        if d.get("de") or d.get("ate"):
+            inicio, fim = regras.periodo(d["periodo"])
+            return d.get("de") or inicio, d.get("ate") or fim
+        return regras.periodo(d["periodo"])
+
+
 # ---------------------------------------------------------------- saída
 
 def _texto(valor):
@@ -135,6 +170,14 @@ def corrida(corrida, usuario):
             {"status": e.status_novo, "texto": e.get_status_novo_display(), "em": e.criado_em.isoformat()}
             for e in corrida.eventos.all()
         ],
+        "pagamento": pagamento(corrida, usuario),
+        "avaliacao": avaliacao(corrida),
+        # RN10: só o cliente, só finalizada, uma vez.
+        "pode_avaliar": (
+            usuario.pk == corrida.cliente_id
+            and corrida.status == Status.FINALIZADA
+            and not hasattr(corrida, "avaliacao")
+        ),
     }
     if usuario.pk == corrida.cliente_id:
         mostra_codigo = corrida.status in (Status.ACEITA, Status.A_CAMINHO, Status.CHEGOU)
@@ -151,12 +194,92 @@ def corrida(corrida, usuario):
     return dados
 
 
+def pagamento(corrida, usuario):
+    """RF20. O cliente vê o total; o motorista vê também o repasse dele."""
+    p = getattr(corrida, "pagamento", None)
+    if p is None:
+        return None
+    dados = {
+        "status": p.status,
+        "status_texto": p.get_status_display(),
+        "forma": p.get_forma_display(),
+        "valor_total": str(p.valor_total),
+        "transacao": p.transacao,
+        "pago_em": p.pago_em.isoformat() if p.pago_em else None,
+        "pode_pagar": usuario.pk == corrida.cliente_id and p.status in regras.EM_ABERTO,
+    }
+    if usuario.pk == corrida.motorista_id:
+        dados["valor_motorista"] = str(p.valor_motorista)
+    return dados
+
+
+def avaliacao(corrida):
+    a = getattr(corrida, "avaliacao", None)
+    return a and {"nota": a.nota, "comentario": a.comentario, "criada_em": a.criada_em.isoformat()}
+
+
+def nota(motorista):
+    dados = regras.nota_do_motorista(motorista)
+    return {"media": _texto(dados["media"]), "total": dados["total"]}
+
+
+def item_historico(corrida, usuario):
+    """Linha do histórico (RF25): resumo, sem dados de contato da outra parte."""
+    p = getattr(corrida, "pagamento", None)
+    eh_cliente = usuario.pk == corrida.cliente_id
+    if p is None:
+        valor = None
+    else:
+        valor = p.valor_total if eh_cliente else p.valor_motorista
+    return {
+        "id": corrida.pk,
+        "criada_em": corrida.criada_em.isoformat(),
+        "status": corrida.status,
+        "status_texto": corrida.get_status_display(),
+        "origem_endereco": corrida.origem_endereco,
+        "destino_endereco": corrida.destino_endereco,
+        "distancia_km": str(corrida.distancia_km),
+        "valor": _texto(valor),
+        "pagamento": p and p.get_status_display(),
+        "nota": getattr(getattr(corrida, "avaliacao", None), "nota", None),
+        "outra_parte": (
+            (corrida.motorista.nome if corrida.motorista_id else None) if eh_cliente
+            else corrida.cliente.nome
+        ),
+    }
+
+
+def ganhos(dados):
+    return {
+        "inicio": dados["inicio"].isoformat(),
+        "fim": dados["fim"].isoformat(),
+        "recebido": str(dados["recebido"]),
+        "em_aberto": str(dados["em_aberto"]),
+        "estornado": str(dados["estornado"]),
+        "corridas_pagas": dados["corridas_pagas"],
+        "pagamentos": [
+            {
+                "corrida": p.corrida_id,
+                "em": p.criado_em.isoformat(),
+                "trajeto": f"{p.corrida.origem_endereco} → {p.corrida.destino_endereco}",
+                "valor_total": str(p.valor_total),
+                "taxa_plataforma": str(p.taxa_plataforma),
+                "valor_motorista": str(p.valor_motorista),
+                "status": p.status,
+                "status_texto": p.get_status_display(),
+            }
+            for p in dados["pagamentos"]
+        ],
+    }
+
+
 def _motorista(corrida):
     motorista = corrida.motorista
     bicicleta = getattr(motorista, "bicicleta", None)
     return {
         "nome": motorista.nome,
         "telefone": motorista.telefone,
+        "nota": nota(motorista),  # RF24
         "bicicleta": f"{bicicleta.marca} {bicicleta.modelo} ({bicicleta.cor})" if bicicleta else None,
         "foto_bicicleta": (
             reverse("motoristas:arquivo", args=["bicicleta", motorista.pk]) if bicicleta else None

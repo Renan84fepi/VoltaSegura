@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load formato %}
+{% block titulo %}Recibo da corrida #{{ corrida.pk }} — VoltaSegura{% endblock %}
+{% block conteudo %}
+<div class="card"><div class="card-body">
+  <div class="d-flex justify-content-between align-items-start mb-2">
+    <h1 class="h4 m-0">Recibo</h1>
+    <span class="badge {% if pagamento.status == 'aprovado' %}text-bg-success{% elif pagamento.status == 'estornado' %}text-bg-secondary{% elif pagamento.status == 'recusado' %}text-bg-danger{% else %}text-bg-warning{% endif %}">{{ pagamento.get_status_display }}</span>
+  </div>
+  <p class="small text-muted mb-3">Corrida #{{ corrida.pk }} • {{ corrida.criada_em|date:"d/m/Y H:i" }}</p>
+
+  <dl class="row small mb-2">
+    <dt class="col-4">Coleta</dt><dd class="col-8">{{ corrida.origem_endereco }}</dd>
+    <dt class="col-4">Destino</dt><dd class="col-8">{{ corrida.destino_endereco }}</dd>
+    <dt class="col-4">Veículo</dt><dd class="col-8">{{ corrida.veiculo_descricao }} • {{ corrida.veiculo_placa }}</dd>
+    {% if corrida.motorista %}<dt class="col-4">Motorista</dt><dd class="col-8">{{ corrida.motorista.nome }}</dd>{% endif %}
+    {% if eh_motorista %}<dt class="col-4">Cliente</dt><dd class="col-8">{{ corrida.cliente.nome }}</dd>{% endif %}
+  </dl>
+
+  <table class="table table-sm mb-2">
+    <tbody>
+      <tr><td>Tarifa base</td><td class="text-end">{{ corrida.tarifa_base|reais }}</td></tr>
+      <tr><td>{{ corrida.distancia_km|km }} × {{ corrida.valor_km|reais }}/km</td><td class="text-end">{{ valor_km_total|reais }}</td></tr>
+      <tr class="fw-bold fs-5"><td>Total</td><td class="text-end">{{ pagamento.valor_total|reais }}</td></tr>
+      {% if eh_motorista %}
+      <tr class="text-muted"><td>Taxa da plataforma ({{ pagamento.percentual_plataforma|floatformat:"-2" }}%)</td><td class="text-end">− {{ pagamento.taxa_plataforma|reais }}</td></tr>
+      <tr class="fw-bold text-success"><td>Seu repasse</td><td class="text-end">{{ pagamento.valor_motorista|reais }}</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+
+  <dl class="row small mb-0">
+    <dt class="col-4">Pagamento</dt><dd class="col-8">{{ pagamento.get_forma_display }} (simulado)</dd>
+    {% if pagamento.pago_em %}<dt class="col-4">Pago em</dt><dd class="col-8">{{ pagamento.pago_em|date:"d/m/Y H:i" }}</dd>{% endif %}
+    {% if pagamento.estornado_em %}<dt class="col-4">Estornado em</dt><dd class="col-8">{{ pagamento.estornado_em|date:"d/m/Y H:i" }}</dd>{% endif %}
+    <dt class="col-4">Transação</dt><dd class="col-8 text-break font-monospace">{{ pagamento.transacao }}</dd>
+  </dl>
+
+  <h2 class="h6 mt-3">Histórico do pagamento</h2>
+  <ul class="small list-unstyled mb-0">
+    {% for e in eventos_pagamento %}<li>{{ e.criado_em|date:"d/m/Y H:i:s" }} — {{ e.get_status_novo_display }}{% if e.observacao %} ({{ e.observacao }}){% endif %}</li>{% endfor %}
+  </ul>
+</div></div>
+
+<p class="small text-muted mt-2">Valores simulados: nenhum pagamento real foi feito.</p>
+<div class="d-flex gap-2 d-print-none">
+  <button class="btn btn-outline-secondary flex-fill" onclick="window.print()">Imprimir</button>
+  <a class="btn btn-primary flex-fill" href="{% url 'corridas:historico' %}">Minhas corridas</a>
+</div>
+{% endblock %}

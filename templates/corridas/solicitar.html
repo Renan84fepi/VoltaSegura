@@ -61,6 +61,6 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<script src="{% static 'corridas/comum.js' %}"></script>
-<script src="{% static 'corridas/cliente.js' %}"></script>
+<script src="{% static 'corridas/comum.js' %}?v={{ versao_estaticos }}"></script>
+<script src="{% static 'corridas/cliente.js' %}?v={{ versao_estaticos }}"></script>
 {% endblock %}

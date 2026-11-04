@@ -28,6 +28,9 @@ class Painel(MotoristaMixin, TemplateView):
         contexto["bicicleta"] = Bicicleta.objects.filter(usuario=usuario).first()
         contexto["repasse"] = DadosRepasse.objects.filter(usuario=usuario).first()
         contexto["simulador"] = settings.DEBUG  # simular posição só em desenvolvimento
+        from corridas.regras import nota_do_motorista
+
+        contexto["nota"] = nota_do_motorista(usuario)  # RF24
         return contexto
 
 

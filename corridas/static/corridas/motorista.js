@@ -239,10 +239,13 @@
       else pararLocalizacao();
 
       if (situacao.corrida_ativa) {
-        desenharCorrida(await VS.api(urlCorrida(situacao.corrida_ativa)));
+        const corrida = await VS.api(urlCorrida(situacao.corrida_ativa));
+        VS.guardarCorrida(corrida); // RNF02
+        desenharCorrida(corrida);
         ofertasChave = null;
         $("area-ofertas").innerHTML = "";
       } else {
+        VS.guardarCorrida(null);
         desenharCorrida(null);
         desenharOfertas(situacao.online ? await VS.api(urls.urlOfertas) : []);
       }
