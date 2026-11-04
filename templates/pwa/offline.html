@@ -3,22 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#212529">
+  <meta name="theme-color" content="#f4f6fb">
   <title>Sem conexão — VoltaSegura</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{% static 'pwa/tema.css' %}?v={{ versao_estaticos }}" rel="stylesheet">
   <style>
-    /* Estilo mínimo próprio, caso o Bootstrap não esteja no cache. */
-    body { background: #f5f7fa; font-family: system-ui, sans-serif; margin: 0; }
-    .topo { background: #212529; color: #fff; padding: .8rem 1rem; font-weight: 700; }
-    .caixa { max-width: 540px; margin: 0 auto; padding: 1rem; }
-    .cartao { background: #fff; border: 1px solid #dee2e6; border-radius: .5rem; padding: 1rem; margin-bottom: 1rem; }
-    .codigo { font-size: 2.4rem; letter-spacing: .6rem; font-weight: 700; }
-    .botao { display: block; width: 100%; padding: .9rem; font-size: 1.1rem; border-radius: .5rem;
-      border: 0; background: #0d6efd; color: #fff; text-align: center; text-decoration: none; }
+    /* Estilo mínimo próprio, caso o Bootstrap ou o tema não estejam no cache. */
+    body { background: #f4f6fb; color: #0f172a; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; }
+    .topo { display: flex; align-items: center; gap: .55rem; padding: .9rem 1rem; font-weight: 800; font-size: 1.1rem;
+      background: rgba(255, 255, 255, .85); border-bottom: 1px solid rgba(15, 23, 42, .06); }
+    .topo i { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; font-style: normal; color: #fff;
+      background: linear-gradient(135deg, #4f46e5, #7c3aed 55%, #22d3ee 130%); }
+    .caixa { max-width: 560px; margin: 0 auto; padding: 1.25rem 1rem; }
+    .cartao { background: #fff; border: 1px solid rgba(15, 23, 42, .05); border-radius: 16px; padding: 1.15rem; margin-bottom: 1rem;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 8px 24px -12px rgba(15, 23, 42, .12); }
+    .codigo { font-size: 2.4rem; letter-spacing: .55rem; font-weight: 800; }
+    .botao { display: block; width: 100%; padding: .95rem; font-size: 1.05rem; font-weight: 650; border-radius: 14px;
+      border: 0; background: linear-gradient(135deg, #5b54f0, #4338ca); color: #fff; text-align: center; text-decoration: none;
+      box-shadow: 0 8px 20px -10px rgba(79, 70, 229, .7); }
   </style>
 </head>
 <body>
-<div class="topo">⚡ VoltaSegura</div>
+<div class="topo"><i aria-hidden="true">⚡</i> VoltaSegura</div>
 <main class="caixa">
   <h1 class="h4">Você está sem conexão</h1>
   <p>Assim que a internet voltar, a página é recarregada sozinha.</p>

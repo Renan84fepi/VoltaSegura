@@ -12,6 +12,7 @@ const ESSENCIAIS = [
   "{% static 'corridas/motorista.js' %}?v={{ versao }}",
   "{% static 'pwa/pwa.js' %}?v={{ versao }}",
   "{% static 'pwa/offline.js' %}?v={{ versao }}",
+  "{% static 'pwa/tema.css' %}?v={{ versao }}",
   "{% static 'pwa/icone-192.png' %}",
 ];
 const EXTERNOS = ["https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"];

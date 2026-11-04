@@ -2,54 +2,55 @@
 <html lang="pt-br">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>{% block titulo %}VoltaSegura{% endblock %}</title>
-  <link rel="manifest" href="{% url 'pwa:manifesto' %}">
-  <meta name="theme-color" content="#212529">
+  {# use-credentials: o navegador busca o manifest sem cookies por padrão; atrás do ngrok gratuito, sem o cookie, vem a página de aviso no lugar dele. #}
+  <link rel="manifest" href="{% url 'pwa:manifesto' %}" crossorigin="use-credentials">
+  <meta name="theme-color" content="#f4f6fb">
   <link rel="icon" type="image/png" sizes="192x192" href="{% static 'pwa/icone-192.png' %}">
   <link rel="apple-touch-icon" href="{% static 'pwa/apple-touch-icon.png' %}">
   <meta name="apple-mobile-web-app-title" content="VoltaSegura">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body { background: #f5f7fa; }
-    .btn { padding-top: .8rem; padding-bottom: .8rem; }
-    .radio-cards label { display: flex; gap: .6rem; align-items: center; padding: .8rem;
-      border: 1px solid #dee2e6; border-radius: .5rem; margin-bottom: .5rem; background: #fff; }
-    .container-estreito { max-width: 540px; }
-    .codigo { font-size: 2.4rem; letter-spacing: .6rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .etapas { list-style: none; padding: 0; margin: 0; }
-    .etapas li { padding: .25rem 0; color: #adb5bd; }
-    .etapas li.feita { color: #198754; }
-    .etapas li.atual { color: #212529; font-weight: 700; }
-  </style>
+  <link href="{% static 'pwa/tema.css' %}?v={{ versao_estaticos }}" rel="stylesheet">
 </head>
-<body data-sw="{% url 'pwa:service-worker' %}" data-autenticado="{% if user.is_authenticated %}1{% endif %}">
-<nav class="navbar navbar-dark bg-dark">
+{% with vista=request.resolver_match.view_name %}
+<body data-sw="{% url 'pwa:service-worker' %}" data-autenticado="{% if user.is_authenticated %}1{% endif %}"
+      class="{% if user.is_authenticated and user.eh_cliente or user.is_authenticated and user.eh_motorista %}com-abas{% endif %}">
+<header class="vs-topo">
   <div class="container container-estreito">
-    <a class="navbar-brand fw-bold" href="{% url 'home' %}">⚡ VoltaSegura</a>
-    <button id="btn-instalar" class="btn btn-warning btn-sm py-1 me-2" type="button" hidden>Instalar app</button>
+    <a class="vs-marca" href="{% url 'home' %}">
+      <span class="vs-logo" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5 2 4 13.5h6.5L9.5 22 20 9.5h-6.6L13.5 2Z"/></svg>
+      </span>
+      <span>Volta<b>Segura</b></span>
+    </a>
     {% if user.is_authenticated %}
-    {% if user.eh_cliente %}
-    <div class="d-flex gap-3 ms-auto me-3">
-      <a class="link-light" href="{% url 'corridas:solicitar' %}">Corrida</a>
-      <a class="link-light" href="{% url 'corridas:historico' %}">Histórico</a>
-      <a class="link-light" href="{% url 'veiculos:lista' %}">Veículos</a>
-    </div>
-    {% elif user.eh_motorista %}
-    <div class="d-flex gap-3 ms-auto me-3">
-      <a class="link-light" href="{% url 'motoristas:painel' %}">Painel</a>
-      <a class="link-light" href="{% url 'corridas:ganhos' %}">Ganhos</a>
-      <a class="link-light" href="{% url 'corridas:historico' %}">Histórico</a>
-    </div>
+    <nav class="vs-links" aria-label="Menu">
+      {% if user.eh_cliente %}
+      <a class="{% if vista == 'corridas:solicitar' or vista == 'corridas:acompanhar' %}ativa{% endif %}" href="{% url 'corridas:solicitar' %}">Corrida</a>
+      <a class="{% if vista == 'corridas:historico' or vista == 'corridas:recibo' %}ativa{% endif %}" href="{% url 'corridas:historico' %}">Histórico</a>
+      <a class="{% if 'veiculos:' in vista %}ativa{% endif %}" href="{% url 'veiculos:lista' %}">Veículos</a>
+      {% elif user.eh_motorista %}
+      <a class="{% if 'motoristas:' in vista %}ativa{% endif %}" href="{% url 'motoristas:painel' %}">Painel</a>
+      <a class="{% if vista == 'corridas:ganhos' %}ativa{% endif %}" href="{% url 'corridas:ganhos' %}">Ganhos</a>
+      <a class="{% if vista == 'corridas:historico' or vista == 'corridas:recibo' %}ativa{% endif %}" href="{% url 'corridas:historico' %}">Histórico</a>
+      {% endif %}
+    </nav>
     {% endif %}
+    <button id="btn-instalar" class="btn btn-sm" type="button" hidden>Instalar app</button>
+    {% if user.is_authenticated %}
     <form method="post" action="{% url 'logout' %}" class="m-0" id="form-sair">
       {% csrf_token %}
-      <button class="btn btn-outline-light btn-sm" type="submit">Sair</button>
+      <button class="btn btn-sm vs-sair" type="submit">Sair</button>
     </form>
     {% endif %}
   </div>
-</nav>
+</header>
 
 <main class="container container-estreito py-3">
   <div id="ajuda-instalar" class="alert alert-info small" hidden></div>
@@ -58,7 +59,36 @@
   {% endfor %}
   {% block conteudo %}{% endblock %}
 </main>
+
+{% if user.is_authenticated %}
+{% if user.eh_cliente or user.eh_motorista %}
+<nav class="vs-abas" aria-label="Navegação">
+  {% if user.eh_cliente %}
+  <a class="{% if vista == 'corridas:solicitar' or vista == 'corridas:acompanhar' %}ativa{% endif %}" href="{% url 'corridas:solicitar' %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+    Corrida</a>
+  <a class="{% if vista == 'corridas:historico' or vista == 'corridas:recibo' %}ativa{% endif %}" href="{% url 'corridas:historico' %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+    Histórico</a>
+  <a class="{% if 'veiculos:' in vista %}ativa{% endif %}" href="{% url 'veiculos:lista' %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18 10l-2.7-3.6A2 2 0 0 0 13.7 6H7.3a2 2 0 0 0-1.7.9L3 10l-.9.2A2 2 0 0 0 1 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M9 17h6"/></svg>
+    Veículos</a>
+  {% elif user.eh_motorista %}
+  <a class="{% if 'motoristas:' in vista %}ativa{% endif %}" href="{% url 'motoristas:painel' %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><path d="M15 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-3 11.5V14l-3-3 4-3 2 3h2"/></svg>
+    Painel</a>
+  <a class="{% if vista == 'corridas:ganhos' %}ativa{% endif %}" href="{% url 'corridas:ganhos' %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>
+    Ganhos</a>
+  <a class="{% if vista == 'corridas:historico' or vista == 'corridas:recibo' %}ativa{% endif %}" href="{% url 'corridas:historico' %}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+    Histórico</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% endif %}
 <script src="{% static 'pwa/pwa.js' %}?v={{ versao_estaticos }}"></script>
 {% block scripts %}{% endblock %}
 </body>
+{% endwith %}
 </html>

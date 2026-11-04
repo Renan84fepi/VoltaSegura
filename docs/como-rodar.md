@@ -65,7 +65,8 @@ Enquanto o pagamento estiver aguardando ou recusado, o cliente não consegue ped
 O comando `criar_dados_exemplo` cria três corridas antigas de Carlos (pagas e avaliadas, uma estornada) para a tela de ganhos já ter dados.
 
 ## Instalar como app e testar offline (PWA)
-- O botão **Instalar app** aparece na barra sempre que o site não está aberto como app instalado (em `localhost` ou HTTPS). No Chrome/Edge ele abre a instalação; nos outros navegadores, ou quando o Chrome ainda não ofereceu a instalação, mostra como instalar (iPhone: Safari → Compartilhar → **Adicionar à Tela de Início**; Firefox no computador não instala apps).
+- O botão **Instalar app** aparece na barra sempre que o site não está aberto como app instalado. Em `localhost` ou HTTPS, no Chrome/Edge, ele abre a instalação. Nos outros navegadores, ou quando o Chrome ainda não ofereceu a instalação, ele mostra como instalar (iPhone: Safari → Compartilhar → **Adicionar à Tela de Início**; o Firefox no computador não instala apps).
+- Aberto por HTTP comum (ex.: IP da rede), o botão explica como criar um **atalho** na tela inicial. O atalho não é o app completo: GPS e modo offline continuam exigindo HTTPS.
 - Para ver a página offline: abra uma corrida em andamento, depois DevTools → **Network → Offline** (ou modo avião no celular) e navegue/recarregue. Aparece o último estado da corrida (status, código e contato) e a página volta sozinha quando a conexão retorna.
 - Ao mudar arquivos estáticos guardados pelo service worker, aumente `VERSAO_CACHE` em `pwa/views.py`. Em desenvolvimento, DevTools → **Application → Service workers → Update on reload** evita cache antigo.
 
@@ -82,6 +83,7 @@ ALLOWED_HOSTS=localhost,127.0.0.1,abc123.ngrok-free.app
 CSRF_TRUSTED_ORIGINS=https://abc123.ngrok-free.app
 ```
 Depois recrie o container com `docker compose up -d` (o `docker compose restart` **não** relê o `.env`). O endereço do ngrok gratuito pode mudar a cada execução: atualize as duas linhas quando mudar.
+O manifesto é carregado com `crossorigin="use-credentials"`. Sem isso, o navegador o buscaria sem o cookie do ngrok e receberia a página de aviso do ngrok no lugar dele, e o app não instalaria.
 Alternativa sem conta: `cloudflared tunnel --url http://localhost:8000` (endereço `*.trycloudflare.com`, configurado do mesmo jeito).
 
 Atalho só para testes no Android, sem túnel: no Chrome do celular, abra `chrome://flags/#unsafely-treat-insecure-origin-as-secure`, informe `http://10.0.5.46:8000` (o IP do seu computador), ative e reinicie o Chrome.

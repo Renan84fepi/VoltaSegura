@@ -170,7 +170,7 @@ Dependências adicionais deverão ser justificadas nesta documentação.
 - [Plano de etapas](docs/plano-de-etapas.md)
 - [Esboço das telas](docs/telas.md)
 - [Atualizações do Marco 2](docs/marco-2-atualizacoes.md)
-- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md); v3: [prompt-v3](docs/prompts/prompt-v3.md); v4: [prompt-v4](docs/prompts/prompt-v4.md))
+- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md); v3: [prompt-v3](docs/prompts/prompt-v3.md); v4: [prompt-v4](docs/prompts/prompt-v4.md); v4.1: [prompt-v4.1](docs/prompts/prompt-v4.1.md))
 
 Os prompts são versionados, com registros das alterações e justificativas em `docs/prompts/CHANGELOG.md`.
 

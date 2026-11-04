@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.views.decorators.cache import cache_control
 
 # Mude ao alterar os arquivos guardados no cache: o navegador troca o cache antigo.
-VERSAO_CACHE = "m4-3"
+VERSAO_CACHE = "m4-5"
 
 
 def manifesto(request):
@@ -24,8 +24,8 @@ def manifesto(request):
             "scope": "/",
             "display": "standalone",
             "orientation": "portrait",
-            "background_color": "#f5f7fa",
-            "theme_color": "#212529",
+            "background_color": "#f4f6fb",
+            "theme_color": "#f4f6fb",
             "icons": [
                 {"src": static("pwa/icone-192.png"), "sizes": "192x192", "type": "image/png", "purpose": "any"},
                 {"src": static("pwa/icone-512.png"), "sizes": "512x512", "type": "image/png", "purpose": "any"},

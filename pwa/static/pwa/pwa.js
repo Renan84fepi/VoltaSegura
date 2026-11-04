@@ -17,12 +17,16 @@
   let pedidoInstalacao = null;
 
   function instrucoes() {
-    // Instalação e service worker só funcionam em HTTPS ou localhost.
-    if (!window.isSecureContext) {
-      return `Para instalar, abra o site por HTTPS (túnel, ex.: ngrok) — ${location.host} usa HTTP comum, ` +
-        "e o navegador só instala apps (e libera o GPS) em endereço seguro. Veja docs/como-rodar.md.";
-    }
     const ua = navigator.userAgent;
+    // Em HTTP comum (ex.: IP da rede) o navegador não instala o app de verdade nem
+    // libera o GPS, mas ainda cria um atalho na tela inicial.
+    if (!window.isSecureContext) {
+      const atalho = /iPhone|iPad|iPod/.test(ua)
+        ? "No Safari, toque em Compartilhar → “Adicionar à Tela de Início”."
+        : "Abra o menu ⋮ do navegador e toque em “Adicionar à tela inicial”.";
+      return `${atalho} Em ${location.host} (HTTP comum) isso cria um atalho, não o app completo: ` +
+        "o GPS e o modo offline só funcionam em endereço seguro (HTTPS). Veja docs/como-rodar.md.";
+    }
     if (/iPhone|iPad|iPod/.test(ua)) return "No Safari, toque em Compartilhar e depois em “Adicionar à Tela de Início”.";
     if (/Android/.test(ua)) return "Abra o menu ⋮ do navegador e toque em “Instalar app” ou “Adicionar à tela inicial”.";
     if (/Firefox/.test(ua)) return "O Firefox para computador não instala apps. Use o Chrome ou o Edge.";
