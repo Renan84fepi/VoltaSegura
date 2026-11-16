@@ -91,6 +91,15 @@ Serão avaliadas após o Marco 2:
 - Histórico paginado para cliente e motorista.
 - PWA: manifesto, ícones, service worker e botão "Instalar app"; sem conexão, página offline com o último estado da corrida ativa (status, código e contato), que recarrega sozinha quando a internet volta.
 
+### Ajustes após os testes em aparelhos (v4.1 e v4.2)
+
+- Tema visual de app, abas inferiores e PWA instalável pelo túnel HTTPS (v4.1).
+- Cadastro: as opções cliente/motorista aparecem como cartões clicáveis.
+- "Usar minha localização" ouve o GPS por até 12 s, fica com a leitura mais precisa e mostra a precisão (±m).
+- Endereços são procurados primeiro perto do cliente (a coleta perto do aparelho, o destino perto da coleta) e só depois no Brasil inteiro.
+- A confirmação mostra onde a coleta e o destino foram encontrados e quantos motoristas estão disponíveis no raio; o acompanhamento avisa quando não há nenhum.
+- O painel do motorista mantém a tela acesa enquanto online e reenvia a posição ao voltar ao app, para não sair da lista de ofertas.
+
 ### Pagamento simulado (RF21, regras da dupla)
 
 | De | Para | Quem |
@@ -170,7 +179,7 @@ Dependências adicionais deverão ser justificadas nesta documentação.
 - [Plano de etapas](docs/plano-de-etapas.md)
 - [Esboço das telas](docs/telas.md)
 - [Atualizações do Marco 2](docs/marco-2-atualizacoes.md)
-- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md); v3: [prompt-v3](docs/prompts/prompt-v3.md); v4: [prompt-v4](docs/prompts/prompt-v4.md); v4.1: [prompt-v4.1](docs/prompts/prompt-v4.1.md))
+- [Prompts do agente de IA](docs/prompts/) (v1: [prompt-v1](docs/prompts/prompt-v1.md); v2: [prompt-v2](docs/prompts/prompt-v2.md); v3: [prompt-v3](docs/prompts/prompt-v3.md); v4: [prompt-v4](docs/prompts/prompt-v4.md); v4.1: [prompt-v4.1](docs/prompts/prompt-v4.1.md); v4.2: [prompt-v4.2](docs/prompts/prompt-v4.2.md))
 
 Os prompts são versionados, com registros das alterações e justificativas em `docs/prompts/CHANGELOG.md`.
 

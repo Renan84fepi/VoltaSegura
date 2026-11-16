@@ -533,6 +533,7 @@ def test_geocodificacao_usa_o_geopy(settings, monkeypatch):
 
     class Local:
         latitude, longitude = -22.23, -45.93
+        address = "Pouso Alegre, Minas Gerais"
 
     monkeypatch.setattr(
         "corridas.geocodificacao.Nominatim.geocode", lambda self, endereco, **kw: Local()
@@ -541,6 +542,58 @@ def test_geocodificacao_usa_o_geopy(settings, monkeypatch):
     monkeypatch.setattr("corridas.geocodificacao.Nominatim.geocode", lambda self, endereco, **kw: None)
     with pytest.raises(EnderecoNaoEncontrado):
         geocodificar("Lugar que não existe")
+
+
+def test_endereco_e_procurado_primeiro_perto_da_referencia(settings, monkeypatch):
+    """Sem região, "Avenida Brasil, 500" ia para o Rio; com perto=, busca perto e só depois no país."""
+    settings.GEOCODIFICACAO_ATIVA = True
+    chamadas = []
+
+    class Local:
+        latitude, longitude = -22.25, -45.94
+        address = "Pouso Alegre, Minas Gerais"
+
+    def falso(self, endereco, **kw):
+        chamadas.append(kw)
+        return Local() if kw.get("bounded") else None
+
+    monkeypatch.setattr("corridas.geocodificacao.Nominatim.geocode", falso)
+    assert geocodificar("Avenida Brasil, 500", perto=(-22.23, -45.93)) == (Decimal("-22.25"), Decimal("-45.94"))
+    assert len(chamadas) == 1
+    assert chamadas[0]["viewbox"] == [pytest.approx((-22.33, -46.03)), pytest.approx((-22.13, -45.83))]
+
+    chamadas.clear()
+    monkeypatch.setattr(
+        "corridas.geocodificacao.Nominatim.geocode",
+        lambda self, endereco, **kw: chamadas.append(kw) or (None if kw.get("bounded") else Local()),
+    )
+    geocodificar("Avenida Paulista, 1000", perto=(-22.23, -45.93))
+    # Não achou em ~11 km nem em ~55 km: busca no país.
+    assert [c.get("bounded", False) for c in chamadas] == [True, True, False]
+
+
+def test_destino_e_procurado_perto_da_coleta(client, settings, monkeypatch):
+    settings.GEOCODIFICACAO_ATIVA = True
+    regioes = []
+
+    class Local:
+        latitude, longitude = -22.24, -45.92
+        address = "Pouso Alegre, Minas Gerais"
+
+    def falso(self, endereco, **kw):
+        regioes.append(kw.get("viewbox"))
+        return Local()
+
+    monkeypatch.setattr("corridas.geocodificacao.Nominatim.geocode", falso)
+    client.force_login(criar_cliente())
+    resposta = client.post(
+        reverse("api:estimativa"),
+        {"origem_endereco": "Minha localização atual", "origem_latitude": -22.23, "origem_longitude": -45.93,
+         "destino_endereco": "Avenida Brasil, 500"},
+        content_type="application/json",
+    )
+    assert resposta.status_code == 200, resposta.json()
+    assert regioes[0][0] == pytest.approx((-22.33, -46.03))
 
 
 def test_cliente_ve_dados_e_distancia_do_motorista(client):
@@ -625,3 +678,37 @@ def test_cliente_da_corrida_ve_foto_da_bicicleta(client):
     assert client.get(url_doc).status_code == 403  # documento continua restrito
     client.force_login(criar_cliente())
     assert client.get(url_bike).status_code == 403
+
+
+def test_estimativa_mostra_o_endereco_encontrado_e_motoristas_no_raio(client, settings, monkeypatch):
+    """Coleta geocodificada em outra cidade ficava fora do raio sem o cliente saber."""
+    settings.GEOCODIFICACAO_ATIVA = True
+
+    class Local:
+        latitude, longitude = CENTRO
+        address = "Praça Senador José Bento, Centro, Pouso Alegre"
+
+    monkeypatch.setattr("corridas.geocodificacao.Nominatim.geocode", lambda self, endereco, **kw: Local())
+    criar_motorista()  # no Centro
+    criar_motorista(minutos_atras=5)  # posição velha: não conta
+    client.force_login(criar_cliente())
+    resposta = client.post(
+        reverse("api:estimativa"),
+        {"origem_endereco": "Praça Senador José Bento", "destino_endereco": "-22.2650, -45.9000"},
+        content_type="application/json",
+    ).json()
+    assert resposta["origem_encontrada"] == "Praça Senador José Bento, Centro, Pouso Alegre"
+    assert resposta["destino_encontrado"] is None  # coordenadas digitadas
+    assert resposta["motoristas_proximos"] == 1
+
+
+def test_cliente_ve_quantos_motoristas_estao_perto_enquanto_procura(client):
+    perto = criar_motorista()
+    criar_motorista(posicao=(-22.9, -43.2))  # Rio: fora do raio
+    cliente = criar_cliente()
+    corrida = pedir(cliente)
+    client.force_login(cliente)
+    url = reverse("api:corrida", args=[corrida.pk])
+    assert client.get(url).json()["motoristas_proximos"] == 1
+    regras.recusar(corrida.pk, perto)
+    assert client.get(url).json()["motoristas_proximos"] == 0

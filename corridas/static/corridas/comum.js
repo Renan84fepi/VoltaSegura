@@ -86,13 +86,37 @@ const VS = (() => {
     return "A localização demorou demais. Tente de novo.";
   }
 
-  function posicaoAtual() {
+  // Fica ouvindo o GPS por até `espera` ms e devolve a leitura mais precisa.
+  // getCurrentPosition entregava a primeira leitura (às vezes velha ou só por Wi-Fi/IP).
+  function posicaoAtual({ precisaoAlvo = 30, espera = 12000 } = {}) {
     return new Promise((resolver, rejeitar) => {
       if (!("geolocation" in navigator)) return rejeitar(new Error(mensagemGps(null)));
-      navigator.geolocation.getCurrentPosition(
-        (p) => resolver({ latitude: p.coords.latitude, longitude: p.coords.longitude }),
-        (erro) => rejeitar(new Error(mensagemGps(erro))),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      let melhor = null;
+      let vigia = null;
+      const terminar = () => {
+        navigator.geolocation.clearWatch(vigia);
+        clearTimeout(limite);
+        resolver(melhor);
+      };
+      const limite = setTimeout(() => {
+        if (melhor) return terminar();
+        navigator.geolocation.clearWatch(vigia);
+        rejeitar(new Error(mensagemGps({ code: 3 })));
+      }, espera);
+      vigia = navigator.geolocation.watchPosition(
+        (p) => {
+          if (!melhor || p.coords.accuracy < melhor.precisao) {
+            melhor = { latitude: p.coords.latitude, longitude: p.coords.longitude, precisao: p.coords.accuracy };
+          }
+          if (melhor.precisao <= precisaoAlvo) terminar();
+        },
+        (erro) => {
+          if (erro.code === 3 && melhor) return terminar();
+          navigator.geolocation.clearWatch(vigia);
+          clearTimeout(limite);
+          rejeitar(new Error(mensagemGps(erro)));
+        },
+        { enableHighAccuracy: true, timeout: espera, maximumAge: 0 }
       );
     });
   }

@@ -48,12 +48,13 @@
             avisoGps(`Localização ativa (${VS.hora(new Date().toISOString())}).`, "text-success");
           },
           (erro) => avisoGps(`${VS.mensagemGps(erro)} Sem localização você não recebe ofertas.`, "text-danger"),
-          { enableHighAccuracy: true, timeout: 20000, maximumAge: 5000 }
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
         );
       }
     }
     enviarPosicao();
     timerEnvio = setInterval(enviarPosicao, ENVIO_LOCALIZACAO);
+    manterTelaAcesa();
   }
 
   function pararLocalizacao() {
@@ -61,6 +62,24 @@
     clearInterval(timerEnvio);
     vigiaGps = null;
     timerEnvio = null;
+    liberarTela();
+  }
+
+  // Com a tela apagada o navegador congela GPS e timers; sem posição recente (2 min)
+  // o motorista sai da lista de ofertas. A Wake Lock API mantém a tela acesa enquanto online.
+  let travaTela = null;
+  async function manterTelaAcesa() {
+    if (travaTela || !("wakeLock" in navigator) || document.visibilityState !== "visible") return;
+    try {
+      travaTela = await navigator.wakeLock.request("screen");
+      travaTela.addEventListener("release", () => { travaTela = null; });
+    } catch {
+      travaTela = null; // economia de bateria ou navegador sem suporte: segue sem a trava
+    }
+  }
+  function liberarTela() {
+    travaTela?.release();
+    travaTela = null;
   }
 
   // ---------------------------------------------------------- online/offline (RF06, RN01)
@@ -256,4 +275,11 @@
   }
 
   VS.repetir(atualizar);
+
+  // Voltou ao app: a trava da tela caiu e a posição pode estar velha. Envia já, sem esperar o timer.
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible" || !timerEnvio) return;
+    manterTelaAcesa();
+    enviarPosicao().then(atualizar);
+  });
 })();

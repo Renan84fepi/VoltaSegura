@@ -53,6 +53,13 @@ Use dois navegadores (ou uma janela anônima), um para cada perfil.
 
 Tarifas, comissão, raio de oferta e motoristas por oferta ficam no admin, em **Corridas → Configuração de tarifas**.
 
+### Localização e endereços
+- **Usar minha localização** ouve o GPS por até 12 s e mostra a precisão. Acima de ±200 m aparece um aviso: a posição foi estimada pela rede (Wi‑Fi/IP), o que é comum em computador sem GPS e pode errar por quilômetros, inclusive de cidade.
+- O endereço digitado é procurado primeiro perto do aparelho (se a localização já foi liberada) e o destino perto da coleta; só depois no Brasil inteiro. Mesmo assim, uma rua que não existe no OpenStreetMap com aquele nome pode ser encontrada em outra cidade. Por isso a confirmação mostra **onde** a coleta e o destino foram encontrados: inclua bairro e cidade se estiver errado.
+- A confirmação e o acompanhamento mostram quantos motoristas estão disponíveis no raio da coleta (padrão 10 km). Se não houver nenhum, confira o endereço de coleta e a posição do motorista.
+- **Posição do motorista:** vem do GPS do aparelho do painel. Num computador, o navegador estima pela rede, e a posição costuma ficar fixa e em outro bairro ou cidade. Para testar a oferta, abra o painel no celular (HTTPS) ou use o simulador com as coordenadas certas.
+- O painel do motorista mantém a tela acesa enquanto ele está online. Com a tela apagada, o navegador congela o GPS; sem posição nos últimos 2 minutos, o motorista não recebe ofertas. Ao voltar ao app, a posição é reenviada na hora.
+
 Sem internet, defina `GEOCODIFICACAO_ATIVA=False` no `.env`: a coleta pode usar a posição do aparelho e os endereços podem ser digitados como `latitude, longitude`.
 
 ## Pagamento, avaliação e ganhos (Marco 4)

@@ -10,6 +10,13 @@
   const destino = $("destino");
   let posicaoAparelho = null; // RF09: coordenadas do GPS, se o cliente usar
   let estimativa = null; // resposta da API, com coordenadas já resolvidas
+  let referencia = null; // posição do aparelho, mesmo após editar a coleta: orienta a busca do endereço
+
+  // Se a localização já foi liberada antes, pega a posição sem perguntar nada.
+  navigator.permissions?.query({ name: "geolocation" }).then((estado) => {
+    if (estado.state !== "granted") return;
+    VS.posicaoAtual({ precisaoAlvo: 1000 }).then((p) => { referencia = referencia || p; }, () => {});
+  }, () => {});
 
   // Editou o endereço à mão: descarta a posição do aparelho.
   origem.addEventListener("input", () => {
@@ -23,9 +30,17 @@
     aviso.textContent = "Obtendo sua localização…";
     try {
       posicaoAparelho = await VS.posicaoAtual();
+      referencia = posicaoAparelho;
       origem.value = "Minha localização atual";
-      aviso.className = "form-text text-success";
-      aviso.textContent = "Localização obtida.";
+      const metros = Math.round(posicaoAparelho.precisao);
+      if (metros > 200) {
+        // Sem GPS (ex.: computador), o navegador estima pela rede e pode errar por quilômetros.
+        aviso.className = "form-text text-warning";
+        aviso.textContent = `Localização aproximada (±${metros} m). Se estiver errada, digite o endereço de coleta.`;
+      } else {
+        aviso.className = "form-text text-success";
+        aviso.textContent = `Localização obtida (±${metros} m).`;
+      }
     } catch (erro) {
       posicaoAparelho = null;
       aviso.className = "form-text text-danger";
@@ -39,6 +54,8 @@
       origem_latitude: posicaoAparelho?.latitude ?? null,
       origem_longitude: posicaoAparelho?.longitude ?? null,
       destino_endereco: destino.value.trim(),
+      referencia_latitude: referencia?.latitude ?? null,
+      referencia_longitude: referencia?.longitude ?? null,
     };
   }
 
@@ -57,6 +74,19 @@
       $("conf-distancia").textContent = VS.distancia(estimativa.distancia_km);
       $("conf-preco").textContent = VS.dinheiro(estimativa.preco_estimado);
       $("conf-trajeto").textContent = `${origem.value.trim()} → ${destino.value.trim()}`;
+      // O que a busca encontrou: se caiu em outra cidade, o cliente percebe antes de pedir.
+      const encontrados = [
+        estimativa.origem_encontrada && `Coleta: ${estimativa.origem_encontrada}`,
+        estimativa.destino_encontrado && `Destino: ${estimativa.destino_encontrado}`,
+      ].filter(Boolean);
+      $("conf-encontrados").hidden = !encontrados.length;
+      $("conf-encontrados").textContent = encontrados.join(" • ");
+      const perto = estimativa.motoristas_proximos;
+      $("conf-motoristas").className = `alert py-2 small ${perto ? "alert-success" : "alert-warning"}`;
+      $("conf-motoristas").textContent = perto
+        ? `${perto} motorista(s) disponível(is) perto da coleta.`
+        : `Nenhum motorista disponível a até ${VS.distancia(estimativa.raio_oferta_km)} da coleta agora. ` +
+          "Confira o endereço de coleta; se pedir, a busca continua até alguém ficar disponível.";
       const forma = document.querySelector("input[name=forma_pagamento]:checked");
       $("conf-veiculo").textContent =
         `${$("veiculo").selectedOptions[0].textContent} • ${forma.parentElement.textContent.trim()}`;
@@ -109,6 +139,12 @@
   const aviso = document.getElementById("aviso-conexao");
   let chave = null; // status desenhado; só redesenha quando muda
   let parar = null;
+
+  function buscaTexto(perto) {
+    return perto
+      ? `Procurando um motorista próximo… (${perto} disponível(is) perto da coleta)`
+      : "Nenhum motorista disponível perto da coleta no momento. Continuamos procurando…";
+  }
 
   function posicaoTexto(corrida) {
     const p = corrida.posicao_motorista;
@@ -179,8 +215,10 @@
       html += `<div class="card mb-3"><div class="card-body">${VS.etapasHtml(c.status)}</div></div>`;
     }
     if (c.status === "solicitada") {
-      html += `<div class="alert alert-info d-flex align-items-center gap-2">
-        <span class="spinner-border spinner-border-sm"></span> Procurando um motorista próximo…</div>`;
+      const perto = c.motoristas_proximos;
+      html += `<div class="alert ${perto ? "alert-info" : "alert-warning"} d-flex align-items-center gap-2">
+        <span class="spinner-border spinner-border-sm"></span>
+        <span data-campo="busca">${buscaTexto(perto)}</span></div>`;
     }
     if (c.codigo_confirmacao) {
       // RF15: o cliente informa o código; sem ele o motorista não inicia a corrida.
@@ -273,6 +311,12 @@
     } else {
       const campo = painel.querySelector("[data-campo=posicao]");
       if (campo) campo.textContent = posicaoTexto(corrida);
+      const busca = painel.querySelector("[data-campo=busca]");
+      if (busca) {
+        busca.textContent = buscaTexto(corrida.motoristas_proximos);
+        busca.parentElement.classList.toggle("alert-info", !!corrida.motoristas_proximos);
+        busca.parentElement.classList.toggle("alert-warning", !corrida.motoristas_proximos);
+      }
     }
     if (corrida.status === "finalizada" || corrida.status === "cancelada") parar();
   }

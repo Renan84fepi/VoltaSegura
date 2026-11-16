@@ -93,8 +93,12 @@ def estimativa(request):
     entrada = s.EstimativaSerializer(data=request.data)
     entrada.is_valid(raise_exception=True)
     origem, destino = entrada.pontos()
-    distancia, preco, _ = regras.estimar(origem[1], origem[2], destino[1], destino[2])
+    distancia, preco, config = regras.estimar(origem[1], origem[2], destino[1], destino[2])
     return Response({
+        "origem_encontrada": entrada.validated_data["origem_encontrado"],
+        "destino_encontrado": entrada.validated_data["destino_encontrado"],
+        "motoristas_proximos": regras.disponiveis_perto(origem[1], origem[2]),
+        "raio_oferta_km": str(config.raio_oferta_km),
         "distancia_km": str(distancia),
         "preco_estimado": str(preco),
         "origem_latitude": str(origem[1]),

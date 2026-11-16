@@ -7,7 +7,7 @@ from rest_framework import serializers
 from veiculos.models import Veiculo
 
 from . import regras
-from .geocodificacao import EnderecoNaoEncontrado, geocodificar
+from .geocodificacao import EnderecoNaoEncontrado, localizar
 from .models import Corrida, Pagamento
 
 Status = Corrida.Status
@@ -39,17 +39,25 @@ class EstimativaSerializer(serializers.Serializer):
     destino_endereco = serializers.CharField(max_length=255)
     destino_latitude = serializers.FloatField(min_value=-90, max_value=90, required=False, allow_null=True)
     destino_longitude = serializers.FloatField(min_value=-180, max_value=180, required=False, allow_null=True)
+    # Posição aproximada do aparelho: só orienta a busca do endereço de coleta.
+    referencia_latitude = serializers.FloatField(min_value=-90, max_value=90, required=False, allow_null=True)
+    referencia_longitude = serializers.FloatField(min_value=-180, max_value=180, required=False, allow_null=True)
 
     def validate(self, dados):
+        perto = None
+        if dados.get("referencia_latitude") is not None and dados.get("referencia_longitude") is not None:
+            perto = (dados["referencia_latitude"], dados["referencia_longitude"])
         for ponto in ("origem", "destino"):
             lat, lng = dados.get(f"{ponto}_latitude"), dados.get(f"{ponto}_longitude")
+            dados[f"{ponto}_encontrado"] = None
             if lat is None or lng is None:
                 try:
-                    lat, lng = geocodificar(dados[f"{ponto}_endereco"])
+                    lat, lng, dados[f"{ponto}_encontrado"] = localizar(dados[f"{ponto}_endereco"], perto=perto)
                 except EnderecoNaoEncontrado as erro:
                     raise serializers.ValidationError({f"{ponto}_endereco": str(erro)})
             dados[f"{ponto}_latitude"] = coordenada(float(lat))
             dados[f"{ponto}_longitude"] = coordenada(float(lng))
+            perto = (lat, lng)  # o destino é procurado perto da coleta
         return dados
 
     def pontos(self):
@@ -161,6 +169,11 @@ def corrida(corrida, usuario):
         "criada_em": corrida.criada_em.isoformat(),
         "motivo_cancelamento": corrida.motivo_cancelamento,
         "pode_cancelar": regras.pode_cancelar(corrida, usuario),
+        # Enquanto procura: quantos motoristas disponíveis estão no raio da coleta.
+        "motoristas_proximos": (
+            regras.disponiveis_perto(corrida.origem_latitude, corrida.origem_longitude, corrida)
+            if corrida.status == Status.SOLICITADA else None
+        ),
         "posicao_motorista": posicao and {
             "alvo": posicao["alvo"],
             "distancia_km": str(posicao["distancia_km"]),

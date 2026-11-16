@@ -3,7 +3,7 @@ import re
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 
-from .mixins import BootstrapFormMixin
+from .mixins import BootstrapFormMixin, RadioCartoes
 from .models import Usuario
 
 
@@ -37,7 +37,7 @@ class CadastroForm(BootstrapFormMixin, UserCreationForm):
             (Usuario.Perfil.CLIENTE, "Quero pedir corridas (cliente)"),
             (Usuario.Perfil.MOTORISTA, "Quero dirigir (motorista)"),
         ],
-        widget=forms.RadioSelect,
+        widget=RadioCartoes,
         initial=Usuario.Perfil.CLIENTE,
     )
 

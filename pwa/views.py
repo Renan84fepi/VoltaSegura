@@ -10,7 +10,7 @@ from django.urls import reverse
 from django.views.decorators.cache import cache_control
 
 # Mude ao alterar os arquivos guardados no cache: o navegador troca o cache antigo.
-VERSAO_CACHE = "m4-5"
+VERSAO_CACHE = "m4-7"
 
 
 def manifesto(request):

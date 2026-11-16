@@ -229,6 +229,17 @@ def _mais_proximos(corrida, elegiveis, config):
     return candidatos[: config.motoristas_por_oferta]
 
 
+def disponiveis_perto(latitude, longitude, corrida=None):
+    """Motoristas elegíveis dentro do raio de oferta (sem quem recusou a corrida, se dada)."""
+    config = Configuracao.atual()
+    recusaram = set(corrida.recusas.values_list("motorista_id", flat=True)) if corrida else set()
+    return sum(
+        1 for perfil in motoristas_elegiveis()
+        if perfil.usuario_id not in recusaram
+        and distancia_km(perfil.latitude, perfil.longitude, latitude, longitude) <= config.raio_oferta_km
+    )
+
+
 def ofertas_para(motorista):
     """Corridas solicitadas oferecidas a este motorista: [(corrida, distância até a coleta)]."""
     elegiveis = list(motoristas_elegiveis())
